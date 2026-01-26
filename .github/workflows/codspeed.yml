@@ -19,7 +19,6 @@ jobs:
       run:
         shell: bash -l {0}
     env:
-      CONDA_FORGE_BUILD: "1"
       GIT_VERSION_INFO: "0.0.0.dev0"
 
     steps:
@@ -43,7 +42,7 @@ jobs:
 
       - name: Build scipp
         run: |
-          cmake --preset ci-linux
+          cmake --preset ci-linux -DCONDA_FORGE_BUILD=ON
           cmake --build --preset build
 
       - name: Install test dependencies
