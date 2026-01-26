@@ -19,7 +19,7 @@ jobs:
       run:
         shell: bash -l {0}
     env:
-      GIT_VERSION_INFO: "0.0.0.dev0"
+      GIT_VERSION_INFO: "0.0.0"
 
     steps:
       - uses: actions/checkout@v4
