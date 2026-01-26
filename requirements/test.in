@@ -3,4 +3,5 @@
 hypothesis
 pytest
 pytest-xdist
+pytest-codspeed
 beautifulsoup4

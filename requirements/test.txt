@@ -21,6 +21,8 @@ pytest==9.0.2
     # via
     #   -r test.in
     #   pytest-xdist
+pytest-codspeed==4.2.0
+    # via -r test.in
 pytest-xdist==3.8.0
     # via -r test.in
 sortedcontainers==2.4.0

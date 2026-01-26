@@ -4,6 +4,7 @@
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/4019/badge)](https://bestpractices.coreinfrastructure.org/projects/4019)
 [![DOI](https://zenodo.org/badge/147631466.svg)](https://zenodo.org/badge/latestdoi/147631466)
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/MridulS/scipp?utm_source=badge)
 
 # Scipp
 
@@ -26,6 +27,6 @@ If you are interested in developing Scipp, please see the [developer getting sta
 The following organizations have made major contributions to the development of scipp, and other developments in the [scipp ecosystem](../../../):
 
 * [European Spallation Source ERIC](https://europeanspallationsource.se/), Sweden
-* [Science and Technology Facilities Council](https://www.ukri.org/councils/stfc/), UK
+* [Scienceand Technology Facilities Council](https://www.ukri.org/councils/stfc/), UK
 
 See individual [releases](https://github.com/scipp/scipp/releases) for the individual contributors to each release.

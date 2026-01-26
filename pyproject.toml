@@ -42,6 +42,7 @@ dynamic = ["version"]
 [project.optional-dependencies]
 test = [
   "pytest",
+  "pytest-codspeed",
   "matplotlib",
   "beautifulsoup4",
   "ipython",
