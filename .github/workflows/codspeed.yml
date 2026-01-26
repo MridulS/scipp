@@ -18,6 +18,9 @@ jobs:
     defaults:
       run:
         shell: bash -l {0}
+    env:
+      CONDA_FORGE_BUILD: "1"
+      GIT_VERSION_INFO: "0.0.0.dev0"
 
     steps:
       - uses: actions/checkout@v4
