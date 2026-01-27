@@ -14,7 +14,7 @@ permissions:
 jobs:
   codspeed:
     name: Run benchmarks
-    runs-on: ubuntu-24.04
+    runs-on: codspeed-macro
     defaults:
       run:
         shell: bash -el {0}
@@ -48,7 +48,7 @@ jobs:
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v4
         with:
-          mode: simulation
+          mode: walltime
           # Custom shells aren't supported
           # https://github.com/CodSpeedHQ/action/issues/65
           run: bash -el -c "PYTHONPATH=${{ github.workspace }}/install LD_LIBRARY_PATH=${{ github.workspace }}/install/lib:$LD_LIBRARY_PATH pytest bench/ --codspeed"
