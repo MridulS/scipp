@@ -55,7 +55,6 @@ jobs:
         uses: CodSpeedHQ/action@v4
         with:
           mode: simulation
-          run: |
-            eval "$(micromamba shell hook --shell bash)"
-            micromamba activate
-            pytest bench/ --codspeed
+          # Custom shells aren't supported
+          # https://github.com/CodSpeedHQ/action/issues/65
+          run: bash -el -c "pytest bench/ --codspeed"
