@@ -53,4 +53,4 @@ jobs:
           mode: simulation
           # Custom shells aren't supported
           # https://github.com/CodSpeedHQ/action/issues/65
-          run: bash -el -c "pytest bench/ --codspeed"
+          run: bash -el -c "PYTHONPATH=${{ github.workspace }}/install LD_LIBRARY_PATH=${{ github.workspace }}/install/lib:$LD_LIBRARY_PATH pytest bench/ --codspeed"
