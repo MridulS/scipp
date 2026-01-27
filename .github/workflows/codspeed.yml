@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-24.04
     defaults:
       run:
-        shell: micromamba-shell {0}
+        shell: bash -el {0}
     env:
       GIT_VERSION_INFO: "0.0.0"
 
@@ -34,8 +34,6 @@ jobs:
           environment-file: .buildconfig/ci-linux.yml
           cache-environment: true
           create-args: python=3.11
-          init-shell: >-
-            bash
 
       - name: ccache
         uses: hendrikmuhs/ccache-action@v1.2.20
@@ -57,4 +55,7 @@ jobs:
         uses: CodSpeedHQ/action@v4
         with:
           mode: simulation
-          run: pytest bench/ --codspeed
+          run: |
+            eval "$(micromamba shell hook --shell bash)"
+            micromamba activate
+            pytest bench/ --codspeed
