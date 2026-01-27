@@ -44,7 +44,6 @@ jobs:
           python -m pip install pytest-codspeed
           cmake --preset ci-linux
           cmake --build --preset build
-          python -m tox -e editable
 
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v4
