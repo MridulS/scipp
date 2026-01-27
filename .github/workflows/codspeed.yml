@@ -40,16 +40,14 @@ jobs:
         with:
           key: ubuntu-24.04
 
-      - name: Build scipp
-        run: |
-          cmake --preset ci-linux -DCONDA_FORGE_BUILD=ON
-          cmake --build --preset build
-
-      - name: Install test dependencies
+      - name: Build scipp and setup deps
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements/test.txt
           python -m pip install pytest-codspeed
+          cmake --preset ci-linux
+          cmake --build --preset build
+          python -m tox -e editable
 
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v4
