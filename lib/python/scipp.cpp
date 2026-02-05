@@ -75,6 +75,22 @@ void init_core(nb::module_ &m) {
 }
 
 NB_MODULE(_scipp, m) {
+  // Disable nanobind's leak detection warnings for this module.
+  //
+  // Nanobind reports "leaks" at interpreter shutdown for any instances, types,
+  // and functions that are still alive. For scipp, these are intentional
+  // module-level objects that exist for the lifetime of the interpreter:
+  // - DType singleton constants (DType.float64, DType.int32, etc.)
+  // - Unit singleton constants (units.m, units.s, etc.)
+  // - DefaultUnit instances
+  // - All registered types and their methods
+  //
+  // These are NOT actual memory leaks - they are properly cleaned up when the
+  // process exits. The warning count is constant regardless of how many scipp
+  // objects are created during runtime. See:
+  // https://nanobind.readthedocs.io/en/latest/faq.html#why-am-i-getting-leaked-warnings
+  nb::set_leak_warnings(false);
+
 #ifdef SCIPP_VERSION
   m.attr("__version__") = SCIPP_VERSION;
 #else

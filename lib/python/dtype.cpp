@@ -74,6 +74,8 @@ objects containing binned data. They cannot be used directly to create arrays of
 
   // Explicit list of dtypes to bind since core::dtypeNameRegistry contains
   // types that are for internal use only and are never returned to Python.
+  // Using def_prop_ro_static creates read-only class properties that raise
+  // AttributeError when someone tries to set them (e.g., DType.float64 = x).
   for (const auto &t : {
            dtype<bool>,
            dtype<int32_t>,

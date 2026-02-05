@@ -170,9 +170,11 @@ class DataAccessHelper {
       result.attr("flags").attr("writeable") = false;
     }
 
-    // Note: We're not setting the base/owner properly here, which means
-    // the memory could be freed while numpy still references it.
-    // For proper lifetime management, we need a more sophisticated approach.
+    // Set the base of the numpy array to keep the underlying Variable alive.
+    // We use a helper function from scipp._array_util that properly sets the
+    // numpy array's base using numpy's C API.
+    nb::module_ array_util = nb::module_::import_("scipp._array_util");
+    result = array_util.attr("set_array_base")(result, owner);
 
     return result;
   }
@@ -320,9 +322,22 @@ public:
       return DataAccessHelper::as_py_array_t_impl<Getter,
                                                   scipp::core::time_point>(
           view);
-    if (is_structured(type))
+    if (is_structured(type)) {
+      // For readonly structured types, we need to handle specially to avoid
+      // the readonly check in elements(). Make a copy of the view which
+      // won't be readonly, then get elements from that, and set the result
+      // to readonly.
+      if (get_data_variable(view).is_readonly()) {
+        auto view_copy = variable::copy(get_data_variable(view));
+        auto result = DataAccessHelper::as_py_array_t_impl<Getter, double>(
+            structure_elements(view_copy));
+        // Set the numpy array to readonly since the original was readonly
+        result.attr("flags").attr("writeable") = false;
+        return result;
+      }
       return DataAccessHelper::as_py_array_t_impl<Getter, double>(
           structure_elements(view));
+    }
     return std::visit(
         [&obj, &view](const auto &data) {
           const auto &dims = view.dims();
@@ -423,6 +438,17 @@ private:
       // nb::rv_policy::reference_internal in the default case
       // below.
       return nb::cast(scalar, nb::rv_policy::move);
+    } else if constexpr (std::is_same_v<std::decay_t<Scalar>, Variable> ||
+                         std::is_same_v<std::decay_t<Scalar>, DataArray> ||
+                         std::is_same_v<std::decay_t<Scalar>, Dataset>) {
+      // For scipp types, return a reference to preserve ownership semantics.
+      // When the .value property is accessed, modifications to the returned
+      // object or reassignment of .value should be visible from both sides.
+      // The parent object must be kept alive to avoid dangling references.
+      auto result = nb::cast(scalar, nb::rv_policy::reference);
+      // Keep the parent (self) alive as long as the reference exists
+      nb::detail::keep_alive(result.ptr(), parent.ptr());
+      return result;
     } else {
       // Returning reference to element in variable.
       // Note: nanobind handles parent lifetime differently
@@ -473,7 +499,9 @@ public:
     expect_scalar(view.dims(), "value");
     if (view.dtype() == dtype<scipp::core::Quaternion> ||
         view.dtype() == dtype<scipp::core::Translation> ||
-        view.dtype() == dtype<Eigen::Affine3d>)
+        view.dtype() == dtype<Eigen::Affine3d> ||
+        view.dtype() == dtype<Eigen::Vector3d> ||
+        view.dtype() == dtype<Eigen::Matrix3d>)
       return get_py_array_t<get_values, Var>(obj);
     return std::visit(GetScalarVisitor<decltype(view)>{obj, view},
                       get<get_values>(view));
@@ -739,12 +767,15 @@ Or replaced entirely:
   >>> var
   <scipp.Variable> (x: 3)    float64              [m]  [4, 5, 6]
 )");
-  c.def_prop_rw(
-      "variances", &as_ElementArrayView::variances<T>,
+  c.def(
+      "_set_variances",
       [](T &view, nb::object obj) {
         as_ElementArrayView::set_variances<T>(view, obj);
       },
-      R"(Array of variances of the data.
+      nb::arg("obj").none(),
+      "Internal setter for variances that accepts None.");
+  c.def_prop_ro("variances", &as_ElementArrayView::variances<T>,
+                R"(Array of variances of the data.
 
 Returns a NumPy array that shares memory with the variable's variance buffer,
 or None if the variable has no variances.
