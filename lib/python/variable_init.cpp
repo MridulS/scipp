@@ -17,6 +17,7 @@
 #include "dtype.h"
 #include "format.h"
 #include "numpy.h"
+#include "numpy_cache.h"
 #include "py_object.h"
 #include "unit.h"
 
@@ -146,8 +147,7 @@ nb::object parse_data_sequence(const nb::object &dim_labels,
   if (is_empty(dim_labels) || data.is_none()) {
     return data;
   } else {
-    nb::module_ numpy = nb::module_::import_("numpy");
-    return numpy.attr("asarray")(data);
+    return python::numpy_asarray()(data);
   }
 }
 
@@ -181,8 +181,8 @@ core::time_point extract_scalar<core::time_point>(const nb::object &obj,
   if (nb::hasattr(obj, "__array_interface__") ||
       nb::hasattr(obj, "__array__")) {
     ensure_is_scalar(obj);
-    nb::module_ numpy = nb::module_::import_("numpy");
-    nb::object np_dtype = numpy.attr("dtype")(numpy.attr("int64"));
+    nb::object np_dtype =
+        python::numpy_dtype_func()(python::numpy_module().attr("int64"));
     return core::time_point{
         nb::cast<PyType>(obj.attr("astype")(np_dtype).attr("item")())};
   } else {
@@ -267,8 +267,7 @@ Variable make_structured_variable(const nb::object &dim_labels,
     throw except::VariancesError("Variances not supported for dtype " +
                                  to_string(dtype<Elem>));
 
-  nb::module_ numpy = nb::module_::import_("numpy");
-  const auto values = numpy.attr("asarray")(values_);
+  const auto values = python::numpy_asarray()(values_);
   const auto unit = unit_.value_or(variable::default_unit_for(dtype<Elem>));
   const auto dims =
       build_dimensions(dim_labels, values, nb::none(), sizeof...(N));

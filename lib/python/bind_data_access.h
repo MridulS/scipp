@@ -20,6 +20,7 @@
 #include "dtype.h"
 #include "nanobind.h"
 #include "numpy.h"
+#include "numpy_cache.h"
 #include "py_object.h"
 #include "unit.h"
 
@@ -70,25 +71,7 @@ template <class... Ts> class as_ElementArrayViewImpl;
 class DataAccessHelper {
   template <class... Ts> friend class as_ElementArrayViewImpl;
 
-  // Cache numpy module and helper functions for performance.
-  // Use pointers and leak detection disabled to avoid shutdown issues -
-  // these are intentionally leaked to avoid GIL issues during finalization.
-  static nb::module_ &numpy_module() {
-    static nb::module_ *numpy = new nb::module_(nb::module_::import_("numpy"));
-    return *numpy;
-  }
-
-  static nb::object &frombuffer_func() {
-    static nb::object *func = new nb::object(numpy_module().attr("frombuffer"));
-    return *func;
-  }
-
-  static nb::object &as_strided_func() {
-    static nb::object *func = new nb::object(
-        numpy_module().attr("lib").attr("stride_tricks").attr("as_strided"));
-    return *func;
-  }
-
+  // Cache for set_array_base function (uses scipp module, not numpy)
   static nb::object &set_array_base_func() {
     static nb::object *func = new nb::object(
         nb::module_::import_("scipp._array_util").attr("set_array_base"));
@@ -139,8 +122,8 @@ class DataAccessHelper {
       throw nb::python_error();
     }
 
-    nb::object result = frombuffer_func()(nb::steal(memview),
-                                          nb::arg("dtype") = base_dtype_str);
+    nb::object result = python::numpy_frombuffer()(
+        nb::steal(memview), nb::arg("dtype") = base_dtype_str);
 
     // Build shape tuple
     nb::tuple py_shape = nb::steal<nb::tuple>(PyTuple_New(shape.size()));
@@ -165,8 +148,8 @@ class DataAccessHelper {
       for (size_t i = 0; i < strides.size(); ++i) {
         PyTuple_SET_ITEM(py_strides.ptr(), i, PyLong_FromSsize_t(strides[i]));
       }
-      result = as_strided_func()(result, nb::arg("shape") = py_shape,
-                                 nb::arg("strides") = py_strides);
+      result = python::numpy_as_strided()(result, nb::arg("shape") = py_shape,
+                                          nb::arg("strides") = py_strides);
     }
 
     if (var.is_readonly()) {
@@ -181,7 +164,7 @@ class DataAccessHelper {
     if constexpr (std::is_same_v<T, scipp::core::time_point>) {
       std::string dtype_str =
           "datetime64[" + to_numpy_time_string(view.unit()) + ']';
-      nb::object np_dtype = numpy_module().attr("dtype")(dtype_str);
+      nb::object np_dtype = python::numpy_dtype_func()(dtype_str);
       result = result.attr("view")(np_dtype);
     }
 
@@ -401,10 +384,6 @@ public:
   }
 
 private:
-  static auto numpy_attr(const char *const name) {
-    return nb::module_::import_("numpy").attr(name);
-  }
-
   template <class Scalar, class View>
   static nb::object make_scalar(Scalar &&scalar, nb::object parent,
                                 const View &view) {
@@ -416,13 +395,12 @@ private:
       return scalar.to_pybind();
     } else if constexpr (std::is_same_v<std::decay_t<Scalar>,
                                         core::time_point>) {
-      const auto np_datetime64 = numpy_attr("datetime64");
+      const auto np_datetime64 = python::numpy_module().attr("datetime64");
       return np_datetime64(scalar.time_since_epoch(),
                            to_numpy_time_string(view.unit()));
     } else if constexpr (std::is_arithmetic_v<std::decay_t<Scalar>>) {
       // Create a numpy scalar with the correct dtype
       // We need to preserve the exact dtype (e.g., int32 vs int64)
-      nb::module_ numpy = nb::module_::import_("numpy");
       // Get numpy dtype string for this C++ type
       constexpr const char *dtype_str = []() {
         if constexpr (std::is_same_v<std::decay_t<Scalar>, float>)
@@ -439,7 +417,7 @@ private:
           return "float64"; // fallback
       }();
       nb::object arr =
-          numpy.attr("asarray")(scalar, nb::arg("dtype") = dtype_str);
+          python::numpy_asarray()(scalar, nb::arg("dtype") = dtype_str);
       return arr.attr("flat").attr("__getitem__")(0);
     } else if constexpr (!std::is_reference_v<Scalar>) {
       // Views such as slices of data arrays for binned data are

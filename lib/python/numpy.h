@@ -12,6 +12,7 @@
 #include "scipp/variable/variable.h"
 
 #include "nanobind.h"
+#include "numpy_cache.h"
 #include "py_object.h"
 
 namespace nb = nanobind;
@@ -52,15 +53,14 @@ auto cast_to_array_like(const nb::object &obj, const sc_units::Unit unit) {
     // obj.cast<nb::ndarray<PyType>> does not always work because
     // numpy.datetime64.__int__ delegates to datetime.datetime if the unit is
     // larger than ns and that cannot be converted to long.
-    nb::module_ numpy = nb::module_::import_("numpy");
-    nb::object np_dtype = numpy.attr("dtype")(numpy.attr("int64"));
-    nb::object arr = numpy.attr("asarray")(obj).attr("astype")(np_dtype);
+    nb::object np_dtype =
+        python::numpy_dtype_func()(python::numpy_module().attr("int64"));
+    nb::object arr = python::numpy_asarray()(obj).attr("astype")(np_dtype);
     return nb::cast<nb::ndarray<PyType, nb::numpy>>(arr);
   } else if constexpr (std::is_standard_layout_v<T> && std::is_trivial_v<T>) {
     // nanobind's nb::ndarray doesn't auto-convert lists like pybind11's
     // py::array_t, so we need to explicitly convert to numpy array first.
     // We also need to convert to the correct dtype (e.g., int to bool).
-    nb::module_ numpy = nb::module_::import_("numpy");
     constexpr const char *dtype_str = []() {
       if constexpr (std::is_same_v<PyType, float>)
         return "float32";
@@ -76,13 +76,13 @@ auto cast_to_array_like(const nb::object &obj, const sc_units::Unit unit) {
         return nullptr; // Let numpy infer
     }();
     // First convert to numpy array, preserving shape (important for scalars)
-    nb::object arr = numpy.attr("asarray")(obj);
+    nb::object arr = python::numpy_asarray()(obj);
     // If it's a multi-dimensional non-contiguous array, make it contiguous.
     // We check flags['C_CONTIGUOUS'] because nb::cast requires contiguous data.
     // Scalars (ndim=0) are always contiguous.
     if (nb::cast<int>(arr.attr("ndim")) > 0 &&
         !nb::cast<bool>(arr.attr("flags")["C_CONTIGUOUS"])) {
-      arr = numpy.attr("ascontiguousarray")(arr);
+      arr = python::numpy_ascontiguousarray()(arr);
     }
     if constexpr (dtype_str != nullptr) {
       arr = arr.attr("astype")(dtype_str, nb::arg("copy") = false);
@@ -96,8 +96,7 @@ auto cast_to_array_like(const nb::object &obj, const sc_units::Unit unit) {
     try {
       return nb::cast<const std::vector<PyType>>(obj);
     } catch (std::runtime_error &) {
-      nb::module_ numpy = nb::module_::import_("numpy");
-      nb::object array = numpy.attr("asarray")(obj);
+      nb::object array = python::numpy_asarray()(obj);
       std::ostringstream oss;
       oss << "Unable to assign object of dtype "
           << std::string(nb::str(array.attr("dtype")).c_str()) << " to "
