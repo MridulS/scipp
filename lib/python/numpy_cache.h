@@ -33,10 +33,13 @@ inline nb::object &numpy_ascontiguousarray() {
 }
 
 /// Cached numpy.dtype function.
-inline nb::object &numpy_dtype_func() {
+inline nb::object &numpy_dtype() {
   static nb::object *func = new nb::object(numpy_module().attr("dtype"));
   return *func;
 }
+
+// Backward compatibility alias (deprecated, use numpy_dtype instead)
+inline nb::object &numpy_dtype_func() { return numpy_dtype(); }
 
 /// Cached numpy.array function.
 inline nb::object &numpy_array() {

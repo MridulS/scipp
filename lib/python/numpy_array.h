@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <type_traits>
 
+#include "dtype_util.h"
+
 // Forward declare types to avoid including Python/numpy headers here
 // (which would cause issues with PY_ARRAY_UNIQUE_SYMBOL)
 struct _object;

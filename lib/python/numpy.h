@@ -11,6 +11,7 @@
 #include "scipp/core/parallel.h"
 #include "scipp/variable/variable.h"
 
+#include "dtype_util.h"
 #include "nanobind.h"
 #include "numpy_cache.h"
 #include "py_object.h"
@@ -61,20 +62,7 @@ auto cast_to_array_like(const nb::object &obj, const sc_units::Unit unit) {
     // nanobind's nb::ndarray doesn't auto-convert lists like pybind11's
     // py::array_t, so we need to explicitly convert to numpy array first.
     // We also need to convert to the correct dtype (e.g., int to bool).
-    constexpr const char *dtype_str = []() {
-      if constexpr (std::is_same_v<PyType, float>)
-        return "float32";
-      else if constexpr (std::is_same_v<PyType, double>)
-        return "float64";
-      else if constexpr (std::is_same_v<PyType, int32_t>)
-        return "int32";
-      else if constexpr (std::is_same_v<PyType, int64_t>)
-        return "int64";
-      else if constexpr (std::is_same_v<PyType, bool>)
-        return "bool";
-      else
-        return nullptr; // Let numpy infer
-    }();
+    constexpr const char *dtype_str = python::numpy_dtype_str<PyType>();
     // First convert to numpy array, preserving shape (important for scalars)
     nb::object arr = python::numpy_asarray()(obj);
     // If it's a multi-dimensional non-contiguous array, make it contiguous.
