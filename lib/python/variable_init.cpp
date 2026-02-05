@@ -240,13 +240,11 @@ Variable make_variable(const nb::object &dim_labels, const nb::object &values,
   const auto dims =
       build_dimensions(dim_labels, converted_values, converted_variances);
   const auto unit = unit_.value_or(variable::default_unit_for(dtype));
-  return core::CallDType<double, float, int64_t, int32_t, bool,
-                         scipp::core::time_point, std::string, Variable,
-                         DataArray, Dataset,
-                         python::PyObject>::apply<MakeVariable>(dtype, dims,
-                                                                values,
-                                                                variances,
-                                                                unit);
+  return core::CallDType<
+      double, float, int64_t, int32_t, bool, scipp::core::time_point,
+      std::string, Variable, DataArray, Dataset,
+      python::PyObject>::apply<MakeVariable>(dtype, dims, converted_values,
+                                             converted_variances, unit);
 }
 
 template <int N> Dimensions pad_structure_dimensions(Dimensions dims) {

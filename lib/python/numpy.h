@@ -57,9 +57,11 @@ auto cast_to_array_like(const nb::object &obj, const sc_units::Unit unit) {
     nb::object arr = numpy.attr("asarray")(obj).attr("astype")(np_dtype);
     return nb::cast<nb::ndarray<PyType, nb::numpy>>(arr);
   } else if constexpr (std::is_standard_layout_v<T> && std::is_trivial_v<T>) {
-    // Casting to nb::ndarray applies all sorts of automatic conversions
-    // such as integer to double, if required.
-    return nb::cast<nb::ndarray<PyType, nb::numpy>>(obj);
+    // nanobind's nb::ndarray doesn't auto-convert lists like pybind11's
+    // py::array_t, so we need to explicitly convert to numpy array first.
+    nb::module_ numpy = nb::module_::import_("numpy");
+    nb::object arr = numpy.attr("asarray")(obj);
+    return nb::cast<nb::ndarray<PyType, nb::numpy>>(arr);
   } else {
     // nb::ndarray only supports POD types. Use a simple but expensive
     // solution for other types.

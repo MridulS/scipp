@@ -38,7 +38,7 @@ requirements:
     - tbb-devel
     - libboost-headers=1.90.0
     - eigen
-    - pybind11
+    - nanobind
     - benchmark
     - gmock=1.15.2
     - gtest=1.15.2
@@ -71,7 +71,7 @@ test:
     - xarray
     - libboost-headers=1.90.0
     - eigen
-    - pybind11
+    - nanobind
     - benchmark
     - gmock=1.15.2
     - gtest=1.15.2

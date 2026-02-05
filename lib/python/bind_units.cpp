@@ -164,6 +164,7 @@ void repr_pretty(const sc_units::Unit &unit, nb::object &p,
 
 void init_units(nb::module_ &m) {
   nb::class_<DefaultUnit>(m, "DefaultUnit")
+      .def(nb::init<>())
       .def("__repr__",
            [](const DefaultUnit &) { return "<automatically deduced unit>"; });
   nb::class_<sc_units::Unit>(m, "Unit", "A physical unit.")
