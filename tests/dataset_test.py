@@ -9,7 +9,7 @@ import scipp as sc
 
 
 def test_init_default() -> None:
-    with pytest.raises(TypeError):
+    with pytest.raises(ValueError, match="data"):
         sc.Dataset()
 
 

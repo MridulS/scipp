@@ -153,6 +153,8 @@ def from_dict(dict_obj: dict[str, Any]) -> VariableLike:
 
 def _dict_to_variable(d: dict[str, Any]) -> Variable:
     """Convert a Python dict to a Scipp Variable."""
+    import numpy as np
+
     d = dict(d)
     # The Variable constructor does not accept both `shape` and `values`. If
     # `values` is present, remove `shape` from the list.
@@ -164,6 +166,15 @@ def _dict_to_variable(d: dict[str, Any]) -> Variable:
     for key in keylist:
         if key == "dtype" and isinstance(d[key], str):
             out[key] = getattr(DType, d[key])
+        elif key in ("values", "variances") and d[key] is not None:
+            # Ensure values/variances are plain numpy arrays, not subclasses.
+            # This is needed because nanobind may not properly handle
+            # numpy subclasses like _ArrayWithBase.
+            val = d[key]
+            if isinstance(val, np.ndarray) and type(val) is not np.ndarray:
+                out[key] = np.array(val)
+            else:
+                out[key] = val
         else:
             out[key] = d[key]
     # Hack for types that cannot be directly constructed using Variable()

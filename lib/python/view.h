@@ -6,13 +6,25 @@
 
 #include "scipp/dataset/dataset.h"
 
+/// Transform that copies items to ensure Python bindings don't hold references.
+static constexpr auto item_copy = [](const auto &item) {
+  return std::pair(item.first, item.second);
+};
+
+/// Transform that copies values to ensure Python bindings don't hold
+/// references.
+static constexpr auto value_copy = [](const auto &value) -> auto {
+  return value;
+};
+
 /// Helper to provide equivalent of the `items()` method of a Python dict.
+/// Uses item_copy transform to return copies, not references to internal data.
 template <class T> class items_view {
 public:
   explicit items_view(T &obj) : m_obj(&obj) {}
   auto size() const noexcept { return m_obj->size(); }
-  auto begin() const { return m_obj->items_begin(); }
-  auto end() const { return m_obj->items_end(); }
+  auto begin() const { return m_obj->items_begin().transform(item_copy); }
+  auto end() const { return m_obj->items_end().transform(item_copy); }
   auto tostring() const { return to_string(*m_obj); }
   bool operator==(const items_view<T> &other) const {
     return *m_obj == *other.m_obj;
@@ -24,21 +36,22 @@ private:
 template <class T> items_view(T &) -> items_view<T>;
 
 /// Helper to provide equivalent of the `values()` method of a Python dict.
+/// Uses value_copy transform to return copies, not references to internal data.
 template <class T> class values_view {
 public:
   explicit values_view(T &obj) : m_obj(&obj) {}
   auto size() const noexcept { return m_obj->size(); }
   auto begin() const {
     if constexpr (std::is_same_v<typename T::mapped_type, scipp::DataArray>)
-      return m_obj->begin();
+      return m_obj->begin().transform(value_copy);
     else
-      return m_obj->values_begin();
+      return m_obj->values_begin().transform(value_copy);
   }
   auto end() const {
     if constexpr (std::is_same_v<typename T::mapped_type, scipp::DataArray>)
-      return m_obj->end();
+      return m_obj->end().transform(value_copy);
     else
-      return m_obj->values_end();
+      return m_obj->values_end().transform(value_copy);
   }
   auto tostring() const {
     std::stringstream ss;

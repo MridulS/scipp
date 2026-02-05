@@ -31,8 +31,17 @@ template <class T, class = void> struct converting_cast {
   }
 };
 
+// Explicit specialization for bool - nanobind doesn't directly cast Python int
+// to C++ bool, so we need to go through Python's bool() first
+template <> struct converting_cast<bool, void> {
+  static bool cast(const nanobind::object &obj) {
+    return nanobind::cast<bool>(nanobind::bool_(obj));
+  }
+};
+
 template <class T>
-struct converting_cast<T, std::enable_if_t<std::is_integral_v<T>>> {
+struct converting_cast<
+    T, std::enable_if_t<std::is_integral_v<T> && !std::is_same_v<T, bool>>> {
   static decltype(auto) cast(const nanobind::object &obj) {
     if (dtype_of(obj) == scipp::dtype<double>) {
       // This conversion is not implemented in nanobind directly

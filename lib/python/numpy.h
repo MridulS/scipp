@@ -59,8 +59,34 @@ auto cast_to_array_like(const nb::object &obj, const sc_units::Unit unit) {
   } else if constexpr (std::is_standard_layout_v<T> && std::is_trivial_v<T>) {
     // nanobind's nb::ndarray doesn't auto-convert lists like pybind11's
     // py::array_t, so we need to explicitly convert to numpy array first.
+    // We also need to convert to the correct dtype (e.g., int to bool).
     nb::module_ numpy = nb::module_::import_("numpy");
+    constexpr const char *dtype_str = []() {
+      if constexpr (std::is_same_v<PyType, float>)
+        return "float32";
+      else if constexpr (std::is_same_v<PyType, double>)
+        return "float64";
+      else if constexpr (std::is_same_v<PyType, int32_t>)
+        return "int32";
+      else if constexpr (std::is_same_v<PyType, int64_t>)
+        return "int64";
+      else if constexpr (std::is_same_v<PyType, bool>)
+        return "bool";
+      else
+        return nullptr; // Let numpy infer
+    }();
+    // First convert to numpy array, preserving shape (important for scalars)
     nb::object arr = numpy.attr("asarray")(obj);
+    // If it's a multi-dimensional non-contiguous array, make it contiguous.
+    // We check flags['C_CONTIGUOUS'] because nb::cast requires contiguous data.
+    // Scalars (ndim=0) are always contiguous.
+    if (nb::cast<int>(arr.attr("ndim")) > 0 &&
+        !nb::cast<bool>(arr.attr("flags")["C_CONTIGUOUS"])) {
+      arr = numpy.attr("ascontiguousarray")(arr);
+    }
+    if constexpr (dtype_str != nullptr) {
+      arr = arr.attr("astype")(dtype_str, nb::arg("copy") = false);
+    }
     return nb::cast<nb::ndarray<PyType, nb::numpy>>(arr);
   } else {
     // nb::ndarray only supports POD types. Use a simple but expensive

@@ -137,7 +137,9 @@ def lookup(
     """
     if dim is None:
         dim = func.dim
-    func = DataArray(func.data, coords={dim: func.coords[dim]}, masks=func.masks)
+    func = DataArray(
+        func.data, coords={dim: func.coords[dim]}, masks=dict(func.masks.items())
+    )
     if func.dims[-1] != dim:
         # We automatically transpose the data so that `dim` is the inner dimension to
         # ensure contiguous memory access.

@@ -243,7 +243,7 @@ def _transform_dataset(
                 for name in original
             }
         )
-    dummy = DataArray(empty(sizes=original.sizes), coords=original.coords)
+    dummy = DataArray(empty(sizes=original.sizes), coords=dict(original.coords.items()))
     transformed = _transform_data_array(
         dummy, targets=targets, graph=graph, options=options
     )

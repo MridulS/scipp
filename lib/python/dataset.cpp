@@ -320,12 +320,65 @@ scipp.Variable, scipp.Dataset
 )");
   // Note: nanobind doesn't have nb::options for disabling function signatures
   // Use __init__ with placement new for factory-style construction
+  // Accept nb::object for coords/masks to allow dict, Coords/Masks types,
+  // or iterables of (key, value) pairs
   dataArray.def(
       "__init__",
-      [](DataArray *self, const Variable &data, const nb::dict &coords,
-         const nb::dict &masks, const std::string &name) {
-        new (self) DataArray{data, to_cpp_dict<Dim, Variable>(coords),
-                             to_cpp_dict<std::string, Variable>(masks), name};
+      [](DataArray *self, const Variable &data, const nb::object &coords,
+         const nb::object &masks, const std::string &name) {
+        // Convert coords - dict, Coords object, or iterable of pairs
+        typename Coords::holder_type coords_map;
+        if (nb::isinstance<nb::dict>(coords)) {
+          coords_map = to_cpp_dict<Dim, Variable>(nb::cast<nb::dict>(coords));
+        } else if (nb::isinstance<Coords>(coords)) {
+          auto &c = nb::cast<const Coords &>(coords);
+          for (auto it = c.keys_begin(); it != c.keys_end(); ++it) {
+            coords_map.insert_or_assign(*it, c[*it]);
+          }
+        } else {
+          // Try to iterate as sequence of (key, value) pairs
+          try {
+            for (auto item : coords) {
+              auto it = nb::iter(item);
+              auto key = *it;
+              ++it;
+              auto val = *it;
+              coords_map.insert_or_assign(Dim{nb::cast<std::string>(key)},
+                                          nb::cast<Variable &>(val));
+            }
+          } catch (...) {
+            throw std::invalid_argument(
+                "coords must be a dict, Coords object, or iterable of pairs");
+          }
+        }
+        // Convert masks - dict, Masks object, or iterable of pairs
+        typename Masks::holder_type masks_map;
+        if (nb::isinstance<nb::dict>(masks)) {
+          masks_map =
+              to_cpp_dict<std::string, Variable>(nb::cast<nb::dict>(masks));
+        } else if (nb::isinstance<Masks>(masks)) {
+          auto &m = nb::cast<const Masks &>(masks);
+          for (auto it = m.keys_begin(); it != m.keys_end(); ++it) {
+            masks_map.insert_or_assign(*it, m[*it]);
+          }
+        } else {
+          // Try to iterate as sequence of (key, value) pairs
+          try {
+            for (auto item : masks) {
+              auto it = nb::iter(item);
+              auto key = *it;
+              ++it;
+              auto val = *it;
+              masks_map.insert_or_assign(nb::cast<std::string>(key),
+                                         nb::cast<Variable &>(val));
+            }
+          } catch (...) {
+            throw std::invalid_argument(
+                "masks must be a dict, Masks object, or iterable of pairs");
+          }
+        }
+        new (self)
+            DataArray{data, std::move(coords_map), std::move(masks_map), name};
       },
       nb::arg("data"), nb::kw_only(), nb::arg("coords") = nb::dict(),
       nb::arg("masks") = nb::dict(), nb::arg("name") = std::string{},
@@ -411,17 +464,91 @@ See Also
 --------
 scipp.DataArray, scipp.Variable
 )");
+  // Helper lambda to convert various data inputs to a dict
+  auto to_data_dict = [](const nb::object &data) -> nb::dict {
+    if (data.is_none())
+      return nb::dict();
+    // If it's already a dict, return directly
+    if (nb::isinstance<nb::dict>(data))
+      return nb::cast<nb::dict>(data);
+    // If it's a Dataset, convert to dict of items
+    if (nb::isinstance<Dataset>(data)) {
+      nb::dict result;
+      const auto &ds = nb::cast<const Dataset &>(data);
+      for (const auto &da : ds) {
+        result[nb::cast(da.name())] = nb::cast(da);
+      }
+      return result;
+    }
+    // If it has a keys() method (like DataGroup), use key-based access
+    if (nb::hasattr(data, "keys")) {
+      nb::dict result;
+      for (auto key : data.attr("keys")()) {
+        result[key] = data[key];
+      }
+      return result;
+    }
+    // Try to iterate as sequence of (key, value) pairs
+    nb::dict result;
+    try {
+      for (auto item : data) {
+        auto it = nb::iter(item);
+        auto key = *it;
+        ++it;
+        auto val = *it;
+        result[key] = val;
+      }
+    } catch (...) {
+      throw std::invalid_argument(
+          "data must be a dict, Dataset, or iterable of (name, value) pairs");
+    }
+    return result;
+  };
+
+  // Helper lambda to convert various coord inputs to a dict
+  auto to_coords_dict = [](const nb::object &coords) -> nb::dict {
+    if (coords.is_none())
+      return nb::dict();
+    // If it's already a dict, return directly
+    if (nb::isinstance<nb::dict>(coords))
+      return nb::cast<nb::dict>(coords);
+    // If it's a Coords object, convert to dict
+    if (nb::isinstance<Coords>(coords)) {
+      nb::dict result;
+      const auto &c = nb::cast<const Coords &>(coords);
+      for (auto it = c.keys_begin(); it != c.keys_end(); ++it) {
+        result[nb::cast(it->name())] = nb::cast(c[*it]);
+      }
+      return result;
+    }
+    // Try to iterate as sequence of (key, value) pairs
+    nb::dict result;
+    try {
+      for (auto item : coords) {
+        auto it = nb::iter(item);
+        auto key = *it;
+        ++it;
+        auto val = *it;
+        result[key] = val;
+      }
+    } catch (...) {
+      throw std::invalid_argument(
+          "coords must be a dict, Coords, or iterable of (dim, Variable) "
+          "pairs");
+    }
+    return result;
+  };
+
   // Use __init__ with placement new for factory-style construction
   dataset.def(
       "__init__",
-      [](Dataset *self, const nb::object &data, const nb::object &coords) {
+      [to_data_dict, to_coords_dict](Dataset *self, const nb::object &data,
+                                     const nb::object &coords) {
         if (data.is_none() && coords.is_none())
           throw std::invalid_argument(
               "Dataset needs data or coordinates or both.");
-        const auto data_dict =
-            data.is_none() ? nb::dict() : nb::cast<nb::dict>(data);
-        const auto coords_dict =
-            coords.is_none() ? nb::dict() : nb::cast<nb::dict>(coords);
+        const auto data_dict = to_data_dict(data);
+        const auto coords_dict = to_coords_dict(coords);
         auto d = dataset_from_data_and_coords(data_dict, coords_dict);
         if (d.is_valid()) {
           new (self) Dataset(std::move(d));

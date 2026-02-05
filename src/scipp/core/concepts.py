@@ -25,7 +25,7 @@ def rewrap_output_data(prototype: _VarOrDa, data: Variable) -> _VarOrDa:
     if isinstance(prototype, DataArray):
         return DataArray(
             data=data,
-            coords=prototype.coords,
+            coords=dict(prototype.coords.items()),
             masks=_copied(prototype.masks),
         )
     else:

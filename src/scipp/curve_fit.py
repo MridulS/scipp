@@ -414,7 +414,7 @@ def _curve_fit_chunk(
     )
 
     # Create a dataarray with only the participating coords
-    _da = DataArray(da.data, coords=coords, masks=da.masks)
+    _da = DataArray(da.data, coords=coords, masks=dict(da.masks.items()))
 
     out = _prepare_numpy_outputs(da, p0, map_over)
 

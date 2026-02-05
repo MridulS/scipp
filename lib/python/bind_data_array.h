@@ -87,17 +87,56 @@ void bind_common_mutable_view_operators(nb::class_<T, Ignored...> &view) {
 
 template <class T, class... Ignored, class Set>
 void bind_dict_update(nb::class_<T, Ignored...> &view, Set &&set_item) {
+  // Helper lambda to update from a dict-like or iterable object
+  auto update_from_other = [set_item](T &self, const nb::object &other) {
+    if (other.is_none())
+      return;
+    // Handle dict-like objects with .keys() method
+    if (nb::hasattr(other, "keys")) {
+      for (auto key : other.attr("keys")()) {
+        auto val = other[key];
+        set_item(self, cast_to_dict_key<T>(key),
+                 cast_to_dict_value<T>(nb::cast<nb::object>(val)));
+      }
+    } else {
+      // Handle iterables of key-value pairs
+      for (auto item : other) {
+        auto it = nb::iter(item);
+        auto key = *it;
+        ++it;
+        auto val = *it;
+        set_item(self, cast_to_dict_key<T>(key),
+                 cast_to_dict_value<T>(nb::cast<nb::object>(val)));
+      }
+    }
+  };
+
+  // Helper lambda to update from kwargs
+  auto update_from_kwargs = [set_item](T &self, const nb::kwargs &kwargs) {
+    for (const auto &item : kwargs) {
+      auto key = item.first;
+      auto val = item.second;
+      set_item(self, cast_to_dict_key<T>(key), cast_to_dict_value<T>(val));
+    }
+  };
+
+  // Single unified update method with optional 'other' and **kwargs
   view.def(
       "update",
-      [set_item](T &self, const nb::kwargs &kwargs) {
-        // Simplified implementation - just use kwargs
-        for (const auto &item : kwargs) {
-          auto key = item.first;
-          auto val = item.second;
-          set_item(self, cast_to_dict_key<T>(key), cast_to_dict_value<T>(val));
+      [update_from_other, update_from_kwargs](T &self, const nb::args &args,
+                                              const nb::kwargs &kwargs) {
+        if (args.size() > 1) {
+          throw std::invalid_argument(
+              "update() takes at most 1 positional argument");
         }
+        // First update from positional arg if provided
+        if (args.size() == 1) {
+          update_from_other(self, nb::cast<nb::object>(args[0]));
+        }
+        // Then update from kwargs (kwargs override other)
+        update_from_kwargs(self, kwargs);
       },
-      R"doc(Update items from keyword arguments.
+      R"doc(Update items from a dict or iterable of key-value pairs and/or keyword arguments.
 
 If ``other`` has a .keys() method, then update does:
 ``for k in other.keys(): self[k] = other[k]``.
@@ -105,8 +144,7 @@ If ``other`` has a .keys() method, then update does:
 If ``other`` is given but does not have a .keys() method, then update does:
 ``for k, v in other: self[k] = v``.
 
-In either case, this is followed by:
-``for k in kwargs: self[k] = kwargs[k]``.
+Keyword arguments override values from ``other``.
 
 See Also
 --------
@@ -358,8 +396,10 @@ void bind_mutable_view_no_dim(nb::module_ &m, const std::string &name,
 template <class T, class... Ignored>
 void bind_data_array_properties(nb::class_<T, Ignored...> &c) {
   if constexpr (std::is_same_v<T, DataArray>)
-    c.def_prop_rw("name", &T::name, &T::setName,
-                  R"(The name of the held data.
+    c.def_prop_rw(
+        "name", &T::name,
+        [](T &self, const std::string &name) { self.setName(name); },
+        R"(The name of the held data.
 
 Examples
 --------
@@ -407,6 +447,7 @@ The data can be replaced entirely:
 )");
   c.def_prop_ro(
       "coords", [](T &self) -> decltype(auto) { return self.coords(); },
+      nb::keep_alive<0, 1>(),
       R"(Dict of coordinates.
 
 Coordinates define the axis labels for each dimension. They can be
@@ -441,6 +482,7 @@ List coordinate names:
 )");
   c.def_prop_ro(
       "masks", [](T &self) -> decltype(auto) { return self.masks(); },
+      nb::keep_alive<0, 1>(),
       R"(Dict of masks.
 
 Masks are boolean Variables that mark data points as valid (False) or
