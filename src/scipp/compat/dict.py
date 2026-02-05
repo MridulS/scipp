@@ -167,12 +167,20 @@ def _dict_to_variable(d: dict[str, Any]) -> Variable:
         if key == "dtype" and isinstance(d[key], str):
             out[key] = getattr(DType, d[key])
         elif key in ("values", "variances") and d[key] is not None:
-            # Ensure values/variances are plain numpy arrays, not subclasses.
+            # Ensure values/variances are plain numpy arrays, not subclasses
+            # or views with scipp internal objects as their base.
             # This is needed because nanobind may not properly handle
-            # numpy subclasses like _ArrayWithBase.
+            # numpy subclasses or arrays with scipp objects as base.
             val = d[key]
-            if isinstance(val, np.ndarray) and type(val) is not np.ndarray:
-                out[key] = np.array(val)
+            if isinstance(val, np.ndarray):
+                # Check if it's a subclass or has a scipp internal base
+                needs_copy = type(val) is not np.ndarray
+                if not needs_copy and val.base is not None:
+                    # Check if base is a scipp internal object
+                    base_type = type(val.base).__module__
+                    if base_type.startswith('scipp'):
+                        needs_copy = True
+                out[key] = np.array(val) if needs_copy else val
             else:
                 out[key] = val
         else:

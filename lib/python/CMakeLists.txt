@@ -21,6 +21,7 @@ nanobind_add_module(
   groupby.cpp
   histogram.cpp
   numpy.cpp
+  numpy_array.cpp
   operations.cpp
   py_object.cpp
   scipp.cpp
@@ -37,8 +38,16 @@ nanobind_add_module(
   ${python_SRC_FILES}
 )
 
+# Find numpy include directory for C API access
+execute_process(
+  COMMAND ${Python_EXECUTABLE} -c "import numpy; print(numpy.get_include())"
+  OUTPUT_VARIABLE NUMPY_INCLUDE_DIR
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
 target_include_directories(
   _scipp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}
+                ${NUMPY_INCLUDE_DIR}
 )
 target_link_libraries(_scipp LINK_PRIVATE scipp-dataset)
 
