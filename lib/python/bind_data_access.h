@@ -70,6 +70,31 @@ template <class... Ts> class as_ElementArrayViewImpl;
 class DataAccessHelper {
   template <class... Ts> friend class as_ElementArrayViewImpl;
 
+  // Cache numpy module and helper functions for performance.
+  // Use pointers and leak detection disabled to avoid shutdown issues -
+  // these are intentionally leaked to avoid GIL issues during finalization.
+  static nb::module_ &numpy_module() {
+    static nb::module_ *numpy = new nb::module_(nb::module_::import_("numpy"));
+    return *numpy;
+  }
+
+  static nb::object &frombuffer_func() {
+    static nb::object *func = new nb::object(numpy_module().attr("frombuffer"));
+    return *func;
+  }
+
+  static nb::object &as_strided_func() {
+    static nb::object *func = new nb::object(
+        numpy_module().attr("lib").attr("stride_tricks").attr("as_strided"));
+    return *func;
+  }
+
+  static nb::object &set_array_base_func() {
+    static nb::object *func = new nb::object(
+        nb::module_::import_("scipp._array_util").attr("set_array_base"));
+    return *func;
+  }
+
   template <class Getter, class T, class View>
   static nb::object as_py_array_t_impl(View &&view) {
     auto &&var = get_data_variable(view);
@@ -77,104 +102,88 @@ class DataAccessHelper {
     const auto &shape = dims.shape();
     const auto strides = numpy_strides<T>(var.strides());
 
-    nb::module_ numpy = nb::module_::import_("numpy");
-
-    // Get the numpy dtype string
-    std::string dtype_str;
-    if constexpr (std::is_same_v<T, scipp::core::time_point>) {
-      dtype_str = "datetime64[" + to_numpy_time_string(view.unit()) + ']';
-    } else if constexpr (std::is_same_v<T, double>) {
-      dtype_str = "float64";
-    } else if constexpr (std::is_same_v<T, float>) {
-      dtype_str = "float32";
-    } else if constexpr (std::is_same_v<T, int64_t>) {
-      dtype_str = "int64";
-    } else if constexpr (std::is_same_v<T, int32_t>) {
-      dtype_str = "int32";
-    } else if constexpr (std::is_same_v<T, bool>) {
-      dtype_str = "bool";
-    } else {
-      dtype_str = "float64"; // fallback
-    }
-    nb::object np_dtype = numpy.attr("dtype")(dtype_str);
-
     // Get data pointer
     const T *data_ptr = Getter::template get<T>(view).data();
 
-    // Create array shape and strides as Python lists
-    nb::list py_shape;
-    nb::list py_strides;
-    for (size_t i = 0; i < shape.size(); ++i) {
-      py_shape.append(shape[i]);
-      py_strides.append(strides[i]);
-    }
+    // Get numpy dtype string
+    constexpr const char *base_dtype_str = []() {
+      if constexpr (std::is_same_v<T, double>)
+        return "float64";
+      else if constexpr (std::is_same_v<T, float>)
+        return "float32";
+      else if constexpr (std::is_same_v<T, int64_t>)
+        return "int64";
+      else if constexpr (std::is_same_v<T, int32_t>)
+        return "int32";
+      else if constexpr (std::is_same_v<T, bool>)
+        return "bool";
+      else if constexpr (std::is_same_v<T, scipp::core::time_point>)
+        return "int64"; // datetime64 uses int64 storage
+      else
+        return "float64"; // fallback
+    }();
 
-    // Build __array_interface__ dict
-    nb::dict array_interface;
-    array_interface["version"] = 3;
-    array_interface["shape"] = nb::tuple(py_shape);
-    array_interface["strides"] = nb::tuple(py_strides);
-    array_interface["typestr"] = np_dtype.attr("str");
-    array_interface["data"] = nb::make_tuple(
-        reinterpret_cast<uintptr_t>(data_ptr), var.is_readonly());
-
-    // Create a holder class instance with __array_interface__
-    // We use a simple approach: create a memoryview-like object
-    nb::object owner = get_data_variable_concept_handle(view);
-
-    // Use ctypes to create a pointer that numpy can use
-    nb::module_ ctypes = nb::module_::import_("ctypes");
-
-    // Calculate total size in bytes
+    // Calculate total elements
     scipp::index total_elements = 1;
     for (const auto s : shape) {
       total_elements *= s;
     }
 
-    // Create ctypes array type: (c_char * total_bytes)
-    nb::object c_char = ctypes.attr("c_char");
-    // In Python: array_type = c_char * total_bytes
-    // We need to call c_char.__mul__(total_bytes)
-    nb::object array_type = c_char.attr("__mul__")(total_elements * sizeof(T));
-    nb::object c_array =
-        array_type.attr("from_address")(reinterpret_cast<uintptr_t>(data_ptr));
+    // Create array using frombuffer (no copy, shares memory)
+    // Use PyMemoryView_FromMemory to create a memory view of the data
+    PyObject *memview = PyMemoryView_FromMemory(
+        reinterpret_cast<char *>(const_cast<T *>(data_ptr)),
+        total_elements * sizeof(T),
+        var.is_readonly() ? PyBUF_READ : PyBUF_WRITE);
+    if (!memview) {
+      throw nb::python_error();
+    }
 
-    // Create numpy array from ctypes array
-    nb::object result = numpy.attr("ctypeslib").attr("as_array")(c_array);
+    nb::object result = frombuffer_func()(nb::steal(memview),
+                                          nb::arg("dtype") = base_dtype_str);
 
-    // Reshape and reinterpret dtype
-    result = result.attr("view")(np_dtype);
-    // Reshape to target shape (including empty tuple for 0-D scalars)
-    result = result.attr("reshape")(nb::tuple(py_shape));
+    // Build shape tuple
+    nb::tuple py_shape = nb::steal<nb::tuple>(PyTuple_New(shape.size()));
+    for (size_t i = 0; i < shape.size(); ++i) {
+      PyTuple_SET_ITEM(py_shape.ptr(), i, PyLong_FromSsize_t(shape[i]));
+    }
+    result = result.attr("reshape")(py_shape);
 
-    // Apply strides if non-contiguous (use as_strided)
-    bool is_contiguous = true;
+    // Check if strides require as_strided
+    bool needs_strided = false;
     scipp::index expected_stride = sizeof(T);
     for (int i = static_cast<int>(shape.size()) - 1; i >= 0; --i) {
       if (strides[i] != expected_stride) {
-        is_contiguous = false;
+        needs_strided = true;
         break;
       }
       expected_stride *= shape[i];
     }
 
-    if (!is_contiguous) {
-      nb::object lib = numpy.attr("lib");
-      nb::object stride_tricks = lib.attr("stride_tricks");
-      result = stride_tricks.attr("as_strided")(
-          result, nb::arg("shape") = nb::tuple(py_shape),
-          nb::arg("strides") = nb::tuple(py_strides));
+    if (needs_strided) {
+      nb::tuple py_strides = nb::steal<nb::tuple>(PyTuple_New(strides.size()));
+      for (size_t i = 0; i < strides.size(); ++i) {
+        PyTuple_SET_ITEM(py_strides.ptr(), i, PyLong_FromSsize_t(strides[i]));
+      }
+      result = as_strided_func()(result, nb::arg("shape") = py_shape,
+                                 nb::arg("strides") = py_strides);
     }
 
     if (var.is_readonly()) {
       result.attr("flags").attr("writeable") = false;
     }
 
-    // Set the base of the numpy array to keep the underlying Variable alive.
-    // We use a helper function from scipp._array_util that properly sets the
-    // numpy array's base using numpy's C API.
-    nb::module_ array_util = nb::module_::import_("scipp._array_util");
-    result = array_util.attr("set_array_base")(result, owner);
+    // Set base object to keep the underlying data alive
+    nb::object owner = get_data_variable_concept_handle(view);
+    result = set_array_base_func()(result, owner);
+
+    // For datetime64, view as the correct dtype with unit
+    if constexpr (std::is_same_v<T, scipp::core::time_point>) {
+      std::string dtype_str =
+          "datetime64[" + to_numpy_time_string(view.unit()) + ']';
+      nb::object np_dtype = numpy_module().attr("dtype")(dtype_str);
+      result = result.attr("view")(np_dtype);
+    }
 
     return result;
   }
