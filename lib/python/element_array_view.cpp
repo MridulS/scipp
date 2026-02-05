@@ -10,14 +10,14 @@
 #include "scipp/dataset/dataset.h"
 #include "scipp/dataset/except.h"
 
-#include "pybind11.h"
+#include "nanobind.h"
 
 #include "py_object.h"
 
 using namespace scipp;
 using namespace scipp::core;
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace {
 template <class T> struct is_bins : std::false_type {};
@@ -34,8 +34,8 @@ template <typename T> decltype(auto) to_python_object(T &&val) {
 } // namespace
 
 template <class T>
-void declare_ElementArrayView(py::module &m, const std::string &suffix) {
-  py::class_<ElementArrayView<T>> view(
+void declare_ElementArrayView(nb::module_ &m, const std::string &suffix) {
+  nb::class_<ElementArrayView<T>> view(
       m, (std::string("ElementArrayView_") + suffix).c_str());
   view.def(
           "__repr__",
@@ -45,16 +45,17 @@ void declare_ElementArrayView(py::module &m, const std::string &suffix) {
           [](const ElementArrayView<T> &self, const scipp::index i) {
             return to_python_object(self[i]);
           },
-          py::return_value_policy::reference)
+          nb::rv_policy::reference)
       .def("__len__", &ElementArrayView<T>::size)
       .def("__iter__", [](const ElementArrayView<T> &self) {
-        return py::make_iterator(self.begin(), self.end());
+        return nb::make_iterator(nb::type<ElementArrayView<T>>(), "iterator",
+                                 self.begin(), self.end());
       });
   if constexpr (std::is_same_v<std::remove_const_t<std::remove_reference_t<T>>,
                                scipp::python::PyObject>) {
     view.def("__setitem__", [](ElementArrayView<T> &self,
                                [[maybe_unused]] const scipp::index i,
-                               [[maybe_unused]] const py::object &value) {
+                               [[maybe_unused]] const nb::object &value) {
       if constexpr (is_bins<T>::value || std::is_const_v<T>)
         throw std::invalid_argument("assignment destination is read-only");
       else
@@ -72,7 +73,7 @@ void declare_ElementArrayView(py::module &m, const std::string &suffix) {
   }
 }
 
-void init_element_array_view(py::module &m) {
+void init_element_array_view(nb::module_ &m) {
   declare_ElementArrayView<double>(m, "double");
   declare_ElementArrayView<float>(m, "float");
   declare_ElementArrayView<int64_t>(m, "int64");

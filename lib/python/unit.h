@@ -5,7 +5,7 @@
 #include <tuple>
 #include <variant>
 
-#include "pybind11.h"
+#include "nanobind.h"
 
 #include "scipp/core/dtype.h"
 #include "scipp/core/time_point.h"
@@ -13,8 +13,32 @@
 
 struct DefaultUnit {};
 
-using ProtoUnit = std::variant<std::string, scipp::sc_units::Unit,
-                               pybind11::none, DefaultUnit>;
+// Tag type for Python None, since nanobind::none is not a type
+struct NoneUnit {};
+
+// Type caster for NoneUnit - converts Python None to NoneUnit
+NAMESPACE_BEGIN(NB_NAMESPACE)
+NAMESPACE_BEGIN(detail)
+template <> struct type_caster<NoneUnit> {
+  NB_TYPE_CASTER(NoneUnit, const_name("None"))
+
+  bool from_python(handle src, uint8_t, cleanup_list *) noexcept {
+    if (src.is_none()) {
+      value = NoneUnit{};
+      return true;
+    }
+    return false;
+  }
+
+  static handle from_cpp(const NoneUnit &, rv_policy, cleanup_list *) noexcept {
+    return none().release();
+  }
+};
+NAMESPACE_END(detail)
+NAMESPACE_END(NB_NAMESPACE)
+
+using ProtoUnit =
+    std::variant<std::string, scipp::sc_units::Unit, NoneUnit, DefaultUnit>;
 
 std::tuple<scipp::sc_units::Unit, int64_t>
 get_time_unit(std::optional<scipp::sc_units::Unit> value_unit,
@@ -22,19 +46,19 @@ get_time_unit(std::optional<scipp::sc_units::Unit> value_unit,
               scipp::sc_units::Unit sc_unit);
 
 std::tuple<scipp::sc_units::Unit, int64_t>
-get_time_unit(const pybind11::buffer &value, const pybind11::object &dtype,
+get_time_unit(const nanobind::object &value, const nanobind::object &dtype,
               scipp::sc_units::Unit unit);
 
 template <class T>
 std::tuple<scipp::sc_units::Unit, scipp::sc_units::Unit>
-common_unit(const pybind11::object &, const scipp::sc_units::Unit unit) {
+common_unit(const nanobind::object &, const scipp::sc_units::Unit unit) {
   // In the general case, values and variances do not encode units themselves.
   return std::tuple{unit, unit};
 }
 
 template <>
 std::tuple<scipp::sc_units::Unit, scipp::sc_units::Unit>
-common_unit<scipp::core::time_point>(const pybind11::object &values,
+common_unit<scipp::core::time_point>(const nanobind::object &values,
                                      const scipp::sc_units::Unit unit);
 
 /// Format a time unit as an ASCII string.

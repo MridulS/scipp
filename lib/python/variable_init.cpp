@@ -3,7 +3,7 @@
 /// @file
 /// @author Jan-Lukas Wynen
 
-#include "pybind11.h"
+#include "nanobind.h"
 
 #include "scipp/core/dtype.h"
 #include "scipp/core/eigen.h"
@@ -23,20 +23,26 @@
 using namespace scipp;
 using namespace scipp::variable;
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
 namespace {
-bool is_empty(const py::object &sequence) {
-  if (py::isinstance<py::buffer>(sequence)) {
-    return sequence.attr("ndim").cast<scipp::index>() == 0;
+bool is_empty(const nb::object &sequence) {
+  if (nb::hasattr(sequence, "__array_interface__") ||
+      nb::hasattr(sequence, "__array__")) {
+    return nb::cast<scipp::index>(sequence.attr("ndim")) == 0;
   }
-  return !py::bool_{sequence};
+  return !nb::bool_(sequence);
 }
 
-auto shape_of(const py::object &array) { return py::iter(array.attr("shape")); }
+auto shape_of(const nb::object &array) { return nb::iter(array.attr("shape")); }
 
-scipp::index n_remaining(const py::iterator &it) {
-  return std::distance(it, it.end());
+scipp::index n_remaining(nb::iterator it) {
+  scipp::index count = 0;
+  while (it != nb::iterator::sentinel()) {
+    ++it;
+    ++count;
+  }
+  return count;
 }
 
 [[noreturn]] void throw_ndim_mismatch_error(const scipp::index a_ndim,
@@ -49,7 +55,7 @@ scipp::index n_remaining(const py::iterator &it) {
                      "' (", b_ndim, ")."));
 }
 
-void ensure_same_shape(const py::object &values, const py::object &variances) {
+void ensure_same_shape(const nb::object &values, const nb::object &variances) {
   if (values.is_none() || variances.is_none()) {
     return;
   }
@@ -59,17 +65,20 @@ void ensure_same_shape(const py::object &values, const py::object &variances) {
 
   scipp::index dim = 0;
   std::tuple<scipp::index, scipp::index, scipp::index> mismatch{-1, -1, -1};
-  for (; val_shape != val_shape.end() && var_shape != var_shape.end();
+  for (; val_shape != nb::iterator::sentinel() &&
+         var_shape != nb::iterator::sentinel();
        ++val_shape, ++var_shape, ++dim) {
-    if (val_shape->cast<scipp::index>() != var_shape->cast<scipp::index>()) {
+    if (nb::cast<scipp::index>(*val_shape) !=
+        nb::cast<scipp::index>(*var_shape)) {
       if (std::get<0>(mismatch) == -1) {
         // Defer throwing to let ndim error take precedence.
-        mismatch = std::tuple{dim, val_shape->cast<scipp::index>(),
-                              var_shape->cast<scipp::index>()};
+        mismatch = std::tuple{dim, nb::cast<scipp::index>(*val_shape),
+                              nb::cast<scipp::index>(*var_shape)};
       }
     }
   }
-  if (val_shape != val_shape.end() || var_shape != var_shape.end()) {
+  if (val_shape != nb::iterator::sentinel() ||
+      var_shape != nb::iterator::sentinel()) {
     throw_ndim_mismatch_error(dim + n_remaining(val_shape), "values",
                               dim + n_remaining(var_shape), "variances");
   }
@@ -82,28 +91,30 @@ void ensure_same_shape(const py::object &values, const py::object &variances) {
 }
 
 namespace detail {
-void consume_extra_dims(py::iterator &shape_it,
+void consume_extra_dims(nb::iterator &shape_it,
                         const scipp::index n_extra_dims) {
   for (scipp::index i = 0; i < n_extra_dims; ++i) {
-    if (shape_it == shape_it.end())
+    if (shape_it == nb::iterator::sentinel())
       throw std::invalid_argument(
           "Data has too few dimensions for given dimension labels.");
     ++shape_it;
   }
 }
 
-Dimensions build_dimensions(py::iterator &&label_it, py::iterator &&shape_it,
+Dimensions build_dimensions(nb::iterator &&label_it, nb::iterator &&shape_it,
                             const scipp::index n_extra_dims,
                             const std::string_view shape_name) {
   Dimensions dims;
   scipp::index dim = 0;
-  for (; label_it != label_it.end() && shape_it != shape_it.end();
+  for (; label_it != nb::iterator::sentinel() &&
+         shape_it != nb::iterator::sentinel();
        ++label_it, ++shape_it, ++dim) {
-    dims.addInner(Dim{label_it->cast<std::string>()},
-                  shape_it->cast<scipp::index>());
+    dims.addInner(Dim{std::string(nb::str(*label_it).c_str())},
+                  nb::cast<scipp::index>(*shape_it));
   }
   consume_extra_dims(shape_it, n_extra_dims);
-  if (label_it != label_it.end() || shape_it != shape_it.end()) {
+  if (label_it != nb::iterator::sentinel() ||
+      shape_it != nb::iterator::sentinel()) {
     throw_ndim_mismatch_error(dim + n_remaining(label_it), "dims",
                               dim + n_remaining(shape_it), shape_name);
   }
@@ -111,47 +122,49 @@ Dimensions build_dimensions(py::iterator &&label_it, py::iterator &&shape_it,
 }
 } // namespace detail
 
-Dimensions build_dimensions(const py::object &dim_labels,
-                            const py::object &values,
-                            const py::object &variances,
+Dimensions build_dimensions(const nb::object &dim_labels,
+                            const nb::object &values,
+                            const nb::object &variances,
                             const scipp::index n_extra_dims = 0) {
   if (is_empty(dim_labels)) {
     return Dimensions{};
   } else {
     if (!values.is_none()) {
       ensure_same_shape(values, variances);
-      return detail::build_dimensions(py::iter(dim_labels), shape_of(values),
+      return detail::build_dimensions(nb::iter(dim_labels), shape_of(values),
                                       n_extra_dims, "values");
     } else {
-      return detail::build_dimensions(py::iter(dim_labels), shape_of(variances),
+      return detail::build_dimensions(nb::iter(dim_labels), shape_of(variances),
                                       n_extra_dims, "variances");
     }
   }
 }
 
-py::object parse_data_sequence(const py::object &dim_labels,
-                               const py::object &data) {
-  // Need to check for None because py::array does not preserve it.
+nb::object parse_data_sequence(const nb::object &dim_labels,
+                               const nb::object &data) {
+  // Need to check for None because numpy array conversion does not preserve it.
   if (is_empty(dim_labels) || data.is_none()) {
     return data;
   } else {
-    return py::array(data);
+    nb::module_ numpy = nb::module_::import_("numpy");
+    return numpy.attr("asarray")(data);
   }
 }
 
-void ensure_is_scalar(const py::buffer &array) {
-  if (const auto ndim = array.attr("ndim").cast<int64_t>(); ndim != 0) {
+void ensure_is_scalar(const nb::object &array) {
+  if (const auto ndim = nb::cast<int64_t>(array.attr("ndim")); ndim != 0) {
     throw except::DimensionError(python::format(
         "Cannot interpret ", ndim, "-dimensional array as a scalar."));
   }
 }
 
 template <class T>
-T extract_scalar(const py::object &obj, const sc_units::Unit unit) {
+T extract_scalar(const nb::object &obj, const sc_units::Unit unit) {
   using TM = ElementTypeMap<T>;
   using PyType = typename TM::PyType;
   TM::check_assignable(obj, unit);
-  if (py::isinstance<py::buffer>(obj)) {
+  if (nb::hasattr(obj, "__array_interface__") ||
+      nb::hasattr(obj, "__array__")) {
     ensure_is_scalar(obj);
     return converting_cast<PyType>::cast(obj.attr("item")());
   } else {
@@ -160,23 +173,25 @@ T extract_scalar(const py::object &obj, const sc_units::Unit unit) {
 }
 
 template <>
-core::time_point extract_scalar<core::time_point>(const py::object &obj,
+core::time_point extract_scalar<core::time_point>(const nb::object &obj,
                                                   const sc_units::Unit unit) {
   using TM = ElementTypeMap<core::time_point>;
   using PyType = typename TM::PyType;
   TM::check_assignable(obj, unit);
-  if (py::isinstance<py::buffer>(obj)) {
+  if (nb::hasattr(obj, "__array_interface__") ||
+      nb::hasattr(obj, "__array__")) {
     ensure_is_scalar(obj);
-    return core::time_point{obj.attr("astype")(py::dtype::of<PyType>())
-                                .attr("item")()
-                                .template cast<PyType>()};
+    nb::module_ numpy = nb::module_::import_("numpy");
+    nb::object np_dtype = numpy.attr("dtype")(numpy.attr("int64"));
+    return core::time_point{
+        nb::cast<PyType>(obj.attr("astype")(np_dtype).attr("item")())};
   } else {
-    return core::time_point{obj.cast<PyType>()};
+    return core::time_point{nb::cast<PyType>(obj)};
   }
 }
 
 template <>
-python::PyObject extract_scalar<python::PyObject>(const py::object &obj,
+python::PyObject extract_scalar<python::PyObject>(const nb::object &obj,
                                                   const sc_units::Unit unit) {
   using TM = ElementTypeMap<python::PyObject>;
   TM::check_assignable(obj, unit);
@@ -184,7 +199,7 @@ python::PyObject extract_scalar<python::PyObject>(const py::object &obj,
 }
 
 template <class T>
-auto make_element_array(const Dimensions &dims, const py::object &source,
+auto make_element_array(const Dimensions &dims, const nb::object &source,
                         const sc_units::Unit unit) {
   if (source.is_none()) {
     return element_array<T>();
@@ -198,8 +213,8 @@ auto make_element_array(const Dimensions &dims, const py::object &source,
 }
 
 template <class T> struct MakeVariable {
-  static Variable apply(const Dimensions &dims, const py::object &values,
-                        const py::object &variances,
+  static Variable apply(const Dimensions &dims, const nb::object &values,
+                        const nb::object &variances,
                         const sc_units::Unit unit) {
     const auto [values_unit, final_unit] = common_unit<T>(values, unit);
     auto values_array =
@@ -215,8 +230,8 @@ template <class T> struct MakeVariable {
   }
 };
 
-Variable make_variable(const py::object &dim_labels, const py::object &values,
-                       const py::object &variances,
+Variable make_variable(const nb::object &dim_labels, const nb::object &values,
+                       const nb::object &variances,
                        const std::optional<sc_units::Unit> &unit_,
                        DType dtype) {
   const auto converted_values = parse_data_sequence(dim_labels, values);
@@ -246,18 +261,19 @@ template <int M, int N> Dimensions pad_structure_dimensions(Dimensions dims) {
 }
 
 template <class T, class Elem, int... N>
-Variable make_structured_variable(const py::object &dim_labels,
-                                  const py::object &values_,
-                                  const py::object &variances,
+Variable make_structured_variable(const nb::object &dim_labels,
+                                  const nb::object &values_,
+                                  const nb::object &variances,
                                   const std::optional<sc_units::Unit> &unit_) {
   if (!variances.is_none())
     throw except::VariancesError("Variances not supported for dtype " +
                                  to_string(dtype<Elem>));
 
-  const auto values = py::array(values_);
+  nb::module_ numpy = nb::module_::import_("numpy");
+  const auto values = numpy.attr("asarray")(values_);
   const auto unit = unit_.value_or(variable::default_unit_for(dtype<Elem>));
   const auto dims =
-      build_dimensions(dim_labels, values, py::none(), sizeof...(N));
+      build_dimensions(dim_labels, values, nb::none(), sizeof...(N));
   const auto padded_dims = pad_structure_dimensions<N...>(dims);
 
   auto var = variable::make_structures<T, Elem>(
@@ -270,11 +286,13 @@ Variable make_structured_variable(const py::object &dim_labels,
  * It is the init method's responsibility to check that the combination
  * of arguments is valid. Functions down the line do not check again.
  */
-void bind_init(py::class_<Variable> &cls) {
+void bind_init(nb::class_<Variable> &cls) {
+  // Use __init__ with placement new for factory-style construction
   cls.def(
-      py::init([](const py::object &dim_labels, const py::object &values,
-                  const py::object &variances, const ProtoUnit unit,
-                  const py::object &dtype, const bool aligned) {
+      "__init__",
+      [](Variable *self, const nb::object &dim_labels, const nb::object &values,
+         const nb::object &variances, const ProtoUnit unit,
+         const nb::object &dtype, const bool aligned) {
         if (values.is_none() && variances.is_none()) {
           throw std::invalid_argument(
               "At least one argument of 'values' and 'variances' is required.");
@@ -305,11 +323,11 @@ void bind_init(py::class_<Variable> &cls) {
         }();
 
         var.set_aligned(aligned);
-        return var;
-      }),
-      py::kw_only(), py::arg("dims"), py::arg("values") = py::none(),
-      py::arg("variances") = py::none(), py::arg("unit") = DefaultUnit{},
-      py::arg("dtype") = py::none(), py::arg("aligned") = true,
+        new (self) Variable(std::move(var));
+      },
+      nb::kw_only(), nb::arg("dims"), nb::arg("values").none() = nb::none(),
+      nb::arg("variances").none() = nb::none(), nb::arg("unit") = DefaultUnit{},
+      nb::arg("dtype").none() = nb::none(), nb::arg("aligned") = true,
       R"raw(
 Initialize a variable with values and/or variances.
 
