@@ -40,7 +40,7 @@ void init_creation(nb::module_ &m) {
         return variable::empty(make_dims(dims, shape), unit_, dtype_,
                                with_variances, aligned);
       },
-      nb::arg("dims"), nb::arg("shape"), nb::arg("unit") = DefaultUnit{},
+      nb::arg("dims"), nb::arg("shape"), nb::arg("unit").none() = DefaultUnit{},
       nb::arg("dtype") = nb::none(), nb::arg("with_variances") = false,
       nb::arg("aligned") = true);
   m.def(
@@ -57,7 +57,7 @@ void init_creation(nb::module_ &m) {
             Eigen::Matrix3d>::apply<MakeZeros>(dtype_, dims, shape, unit_,
                                                with_variances);
       },
-      nb::arg("dims"), nb::arg("shape"), nb::arg("unit") = DefaultUnit{},
+      nb::arg("dims"), nb::arg("shape"), nb::arg("unit").none() = DefaultUnit{},
       nb::arg("dtype") = nb::none(), nb::arg("with_variances") = std::nullopt);
   m.def(
       "ones",
@@ -70,6 +70,6 @@ void init_creation(nb::module_ &m) {
         return variable::ones(make_dims(dims, shape), unit_, dtype_,
                               with_variances);
       },
-      nb::arg("dims"), nb::arg("shape"), nb::arg("unit") = DefaultUnit{},
+      nb::arg("dims"), nb::arg("shape"), nb::arg("unit").none() = DefaultUnit{},
       nb::arg("dtype") = nb::none(), nb::arg("with_variances") = std::nullopt);
 }

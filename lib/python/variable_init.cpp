@@ -324,7 +324,8 @@ void bind_init(nb::class_<Variable> &cls) {
         new (self) Variable(std::move(var));
       },
       nb::kw_only(), nb::arg("dims"), nb::arg("values").none() = nb::none(),
-      nb::arg("variances").none() = nb::none(), nb::arg("unit") = DefaultUnit{},
+      nb::arg("variances").none() = nb::none(),
+      nb::arg("unit").none() = DefaultUnit{},
       nb::arg("dtype").none() = nb::none(), nb::arg("aligned") = true,
       R"raw(
 Initialize a variable with values and/or variances.

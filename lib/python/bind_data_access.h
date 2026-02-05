@@ -144,9 +144,8 @@ class DataAccessHelper {
 
     // Reshape and reinterpret dtype
     result = result.attr("view")(np_dtype);
-    if (shape.size() > 0) {
-      result = result.attr("reshape")(nb::tuple(py_shape));
-    }
+    // Reshape to target shape (including empty tuple for 0-D scalars)
+    result = result.attr("reshape")(nb::tuple(py_shape));
 
     // Apply strides if non-contiguous (use as_strided)
     bool is_contiguous = true;
@@ -397,9 +396,27 @@ private:
       return np_datetime64(scalar.time_since_epoch(),
                            to_numpy_time_string(view.unit()));
     } else if constexpr (std::is_arithmetic_v<std::decay_t<Scalar>>) {
-      // Create a numpy scalar
+      // Create a numpy scalar with the correct dtype
+      // We need to preserve the exact dtype (e.g., int32 vs int64)
       nb::module_ numpy = nb::module_::import_("numpy");
-      return numpy.attr("asarray")(scalar).attr("item")();
+      // Get numpy dtype string for this C++ type
+      constexpr const char *dtype_str = []() {
+        if constexpr (std::is_same_v<std::decay_t<Scalar>, float>)
+          return "float32";
+        else if constexpr (std::is_same_v<std::decay_t<Scalar>, double>)
+          return "float64";
+        else if constexpr (std::is_same_v<std::decay_t<Scalar>, int32_t>)
+          return "int32";
+        else if constexpr (std::is_same_v<std::decay_t<Scalar>, int64_t>)
+          return "int64";
+        else if constexpr (std::is_same_v<std::decay_t<Scalar>, bool>)
+          return "bool";
+        else
+          return "float64"; // fallback
+      }();
+      nb::object arr =
+          numpy.attr("asarray")(scalar, nb::arg("dtype") = dtype_str);
+      return arr.attr("flat").attr("__getitem__")(0);
     } else if constexpr (!std::is_reference_v<Scalar>) {
       // Views such as slices of data arrays for binned data are
       // returned by value and require separate handling to avoid the
@@ -722,9 +739,12 @@ Or replaced entirely:
   >>> var
   <scipp.Variable> (x: 3)    float64              [m]  [4, 5, 6]
 )");
-  c.def_prop_rw("variances", &as_ElementArrayView::variances<T>,
-                &as_ElementArrayView::set_variances<T>,
-                R"(Array of variances of the data.
+  c.def_prop_rw(
+      "variances", &as_ElementArrayView::variances<T>,
+      [](T &view, nb::object obj) {
+        as_ElementArrayView::set_variances<T>(view, obj);
+      },
+      R"(Array of variances of the data.
 
 Returns a NumPy array that shares memory with the variable's variance buffer,
 or None if the variable has no variances.

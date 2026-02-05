@@ -24,6 +24,7 @@
 #include <nanobind/operators.h>
 
 // STL type casters - nanobind requires explicit includes
+#include <nanobind/stl/map.h>
 #include <nanobind/stl/optional.h>
 #include <nanobind/stl/pair.h>
 #include <nanobind/stl/shared_ptr.h>
