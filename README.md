@@ -4,6 +4,7 @@
 [![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE)
 [![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/4019/badge)](https://bestpractices.coreinfrastructure.org/projects/4019)
 [![DOI](https://zenodo.org/badge/147631466.svg)](https://zenodo.org/badge/latestdoi/147631466)
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://codspeed.io/MridulS/scipp?utm_source=badge)
 
 # Scipp
 

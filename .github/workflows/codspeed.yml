@@ -1,0 +1,54 @@
+name: CodSpeed
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  codspeed:
+    name: Run benchmarks
+    runs-on: codspeed-macro
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0
+
+      - name: Setup conda environment
+        uses: mamba-org/setup-micromamba@v2
+        with:
+          micromamba-version: 2.5.0-1
+          environment-file: .buildconfig/ci-linux.yml
+          cache-environment: true
+          create-args: python=3.11
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2.20
+        with:
+          key: ubuntu-24.04
+
+      - name: Build scipp and setup deps
+        run: |
+          python -m pip install -r requirements/test.in
+          python -m pip install pytest-codspeed
+          cmake --preset ci-linux
+          cmake --build --preset build
+
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v4
+        with:
+          mode: walltime
+          # Custom shells aren't supported
+          # https://github.com/CodSpeedHQ/action/issues/65
+          run: bash -el -c "PYTHONPATH=${{ github.workspace }}/install LD_LIBRARY_PATH=${{ github.workspace }}/install/lib:$LD_LIBRARY_PATH pytest bench/ --codspeed"
