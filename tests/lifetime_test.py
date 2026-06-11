@@ -1,15 +1,33 @@
 # SPDX-License-Identifier: BSD-3-Clause
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # @author Simon Heybrock
-"""This file contains tests specific to pybind11 lifetime issues, in particular
-py::return_value_policy and py::keep_alive."""
+"""This file contains tests specific to binding lifetime issues, in particular
+return value policies and keep_alive."""
 
+import weakref
 from collections.abc import Callable
 
 import numpy as np
 import pytest
 
 import scipp as sc
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        sc.scalar(1.0),
+        sc.array(dims=['x'], values=[1.0, 2.0]),
+        sc.DataArray(sc.scalar(1.0)),
+        sc.Dataset({'a': sc.scalar(1.0)}),
+    ],
+    ids=['variable_scalar', 'variable_array', 'dataarray', 'dataset'],
+)
+def test_supports_weakref(obj: sc.Variable | sc.DataArray | sc.Dataset) -> None:
+    # nanobind classes are not weak-referenceable unless explicitly marked;
+    # pybind11 instances were by default. Guard that the marking is preserved.
+    ref = weakref.ref(obj)
+    assert ref() is obj
 
 
 def test_lifetime_values_of_py_array_t_item() -> None:

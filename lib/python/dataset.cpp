@@ -260,7 +260,8 @@ Returned by :py:meth:`DataArray.coords` and :py:meth:`Dataset.coords`.)");
 
 Returned by :py:func:`DataArray.masks`)");
 
-  nb::class_<DataArray> dataArray(m, "DataArray", R"(
+  nb::class_<DataArray> dataArray(m, "DataArray", nb::is_weak_referenceable(),
+                                  R"(
 Named variable with associated coords and masks.
 
 DataArrays support rich indexing with dimension labels and coordinate values:
@@ -375,7 +376,7 @@ scipp.Variable, scipp.Dataset
 
   bind_data_array(dataArray);
 
-  nb::class_<Dataset> dataset(m, "Dataset", R"(
+  nb::class_<Dataset> dataset(m, "Dataset", nb::is_weak_referenceable(), R"(
   Dict of data arrays with aligned dimensions.
 
 A Dataset groups multiple DataArrays that share common coordinates. Operations

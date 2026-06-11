@@ -76,6 +76,7 @@ void init_variable(nb::module_ &m) {
   nb::class_<VariableConcept> variable_concept(m, "_VariableConcept");
 
   nb::class_<Variable> variable(m, "Variable", nb::dynamic_attr(),
+                                nb::is_weak_referenceable(),
                                 R"(
 Array of values with dimension labels and a unit, optionally including an array
 of variances.
