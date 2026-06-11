@@ -1,0 +1,12 @@
+{
+  "description": "Clean rebuild of only the _scipp bindings target, ccache disabled",
+  "command": "touch lib/python/*.cpp lib/python/*.h && CCACHE_DISABLE=1 /usr/bin/time -p pixi run ninja -C build _scipp",
+  "binding_framework": "nanobind",
+  "translation_units": 113,
+  "wall_seconds": 1090.51,
+  "wall_seconds_note": "machine was throttled/busy during this run; cpu_user_seconds is the comparable metric",
+  "cpu_user_seconds": 204.51,
+  "cpu_sys_seconds": 18.47,
+  "machine": "macOS arm64 (Darwin 25.4.0)",
+  "date": "2026-06-10"
+}
