@@ -34,7 +34,14 @@ find_package(GTest CONFIG REQUIRED)
 # libpython is not available on `manylinux` images, use `Development.Module`
 # instead of `Development`
 find_package(Python 3.11 REQUIRED COMPONENTS Interpreter Development.Module)
-find_package(pybind11 CONFIG REQUIRED)
+# Locate nanobind via its Python package, which works for both pip and conda
+# installs without requiring CMAKE_PREFIX_PATH to be set.
+execute_process(
+  COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+  OUTPUT_VARIABLE nanobind_ROOT COMMAND_ERROR_IS_FATAL ANY
+)
+find_package(nanobind CONFIG REQUIRED)
 
 # Generate files for free scipp API functions
 include(scipp-functions)

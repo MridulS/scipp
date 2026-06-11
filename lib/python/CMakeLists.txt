@@ -3,11 +3,17 @@
 # Copyright (c) 2023 Scipp contributors (https://github.com/scipp)
 # ~~~
 
-# Use Python_add_library since pybind11_add_module causes linking to libpython,
-# which should be avoided on Linux and OSX.
-python_add_library(
+# nanobind_add_module does not link against libpython for MODULE targets, so the
+# historical reason for using python_add_library directly (avoiding libpython on
+# Linux and OSX) no longer applies.
+#
+# NOMINSIZE: nanobind defaults to -Os for binding code; scipp's bindings sit on
+# hot paths (element access, slicing), so keep regular optimization levels.
+nanobind_add_module(
   _scipp
-  MODULE
+  NB_STATIC
+  NOMINSIZE
+  NB_SUPPRESS_WARNINGS
   bind_units.cpp
   bins.cpp
   comparison.cpp
@@ -41,8 +47,7 @@ python_add_library(
 target_include_directories(
   _scipp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}
 )
-target_link_libraries(_scipp LINK_PRIVATE scipp-dataset pybind11::headers)
-target_compile_definitions(_scipp PUBLIC PYBIND11_DETAILED_ERROR_MESSAGES)
+target_link_libraries(_scipp LINK_PRIVATE scipp-dataset)
 
 # SCIPP_EXPORT is used in macros defined in variable/
 target_compile_definitions(_scipp PRIVATE SCIPP_EXPORT=)
@@ -57,7 +62,7 @@ set_target_properties(
 )
 
 if(PRECOMPILED_HEADERS)
-  target_precompile_headers(_scipp PRIVATE pybind11.h)
+  target_precompile_headers(_scipp PRIVATE nanobind.h)
 endif()
 
 if(SANITIZERS)
