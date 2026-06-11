@@ -1346,3 +1346,20 @@ def test_datetime_epoch() -> None:
         sc.epoch(unit='s'), sc.scalar(np.datetime64('1970-01-01T00:00:00', 's'))
     )
     assert sc.identical(sc.epoch(unit='D'), sc.scalar(np.datetime64('1970-01-01', 'D')))
+
+
+def test_assign_overflowing_int_raises_overflow_error() -> None:
+    # The values setter delegates dtype coercion to numpy, so an int too large
+    # for the target dtype raises numpy's OverflowError rather than an opaque
+    # binding-layer error (std::bad_cast wrapped as RuntimeError).
+    var = sc.zeros(dims=['x'], shape=[1], dtype='int64')
+    with pytest.raises(OverflowError):
+        var.values = [2**70]
+
+
+def test_assign_unparseable_string_raises_value_error() -> None:
+    # numpy reports a descriptive ValueError for the failed conversion instead
+    # of an opaque binding-layer error.
+    var = sc.zeros(dims=['x'], shape=[2], dtype='float64')
+    with pytest.raises(ValueError, match='could not convert string to float'):
+        var.values = ['a', 'b']

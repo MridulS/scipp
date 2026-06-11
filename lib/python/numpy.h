@@ -22,6 +22,21 @@ using namespace scipp;
 /// Typed view over a numpy array; strides are in elements, not bytes.
 template <class T> using py_array_t = nb::ndarray<const T, nb::numpy>;
 
+template <class T> constexpr const char *numpy_dtype_name() {
+  if constexpr (std::is_same_v<T, double>)
+    return "float64";
+  else if constexpr (std::is_same_v<T, float>)
+    return "float32";
+  else if constexpr (std::is_same_v<T, int64_t>)
+    return "int64";
+  else if constexpr (std::is_same_v<T, int32_t>)
+    return "int32";
+  else if constexpr (std::is_same_v<T, bool>)
+    return "bool";
+  else
+    static_assert(sizeof(T) == 0, "type has no numpy dtype name");
+}
+
 /// Map C++ types to Python types to perform conversion between scipp containers
 /// and numpy arrays.
 template <class T> struct ElementTypeMap {
@@ -61,12 +76,15 @@ auto cast_to_array_like(const nb::object &obj, const sc_units::Unit unit) {
     return nb::cast<py_array_t<PyType>>(
         np.attr("asarray")(obj).attr("astype")("int64"));
   } else if constexpr (std::is_standard_layout_v<T> && std::is_trivial_v<T>) {
-    // np.asarray converts lists and scalars to arrays (no copy if the input
-    // already is one); the ndarray cast then converts the dtype if required,
-    // applying the same automatic conversions (such as integer to double) as
-    // pybind11's converting py::array_t cast did.
+    // np.asarray converts lists, scalars, and mismatched dtypes to an array
+    // of the target dtype (no copy if the input already matches), applying
+    // the same automatic conversions (such as integer to double) as
+    // pybind11's converting py::array_t cast did. Passing the dtype to numpy
+    // makes conversion failures raise numpy's descriptive OverflowError /
+    // ValueError instead of an opaque cast error.
     const auto np = nb::module_::import_("numpy");
-    return nb::cast<py_array_t<PyType>>(np.attr("asarray")(obj));
+    return nb::cast<py_array_t<PyType>>(
+        np.attr("asarray")(obj, numpy_dtype_name<PyType>()));
   } else {
     // nb::ndarray only supports arithmetic dtypes. Use a simple but expensive
     // solution for other types (object arrays, string arrays).
