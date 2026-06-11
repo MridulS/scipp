@@ -158,6 +158,15 @@ void bind_astype(nb::class_<T, Ignored...> &c) {
 )");
 }
 
+/// pybind11 set __hash__ = None whenever __eq__ was bound to a class that
+/// does not define __hash__ itself (mirroring Python class semantics);
+/// nanobind does not, so restore unhashability explicitly.
+template <class T, class... Ignored>
+void unset_default_hash(nanobind::class_<T, Ignored...> &c) {
+  if (!nb::cast<bool>(c.attr("__dict__").attr("__contains__")("__hash__")))
+    c.attr("__hash__") = nb::none();
+}
+
 template <class Other, class T, class... Ignored>
 void bind_inequality_to_operator(nanobind::class_<T, Ignored...> &c) {
   c.def(
@@ -166,6 +175,7 @@ void bind_inequality_to_operator(nanobind::class_<T, Ignored...> &c) {
   c.def(
       "__ne__", [](const T &a, const Other &b) { return a != b; },
       nb::is_operator(), nb::call_guard<nb::gil_scoped_release>());
+  unset_default_hash(c);
 }
 
 struct Identity {
@@ -311,6 +321,7 @@ template <class RHSSetup> struct OpBinder {
     c.def(
         "__eq__", [](const T &a, Other &b) { return equal(a, RHSSetup{}(b)); },
         nb::is_operator(), nb::call_guard<nb::gil_scoped_release>());
+    unset_default_hash(c);
     c.def(
         "__ne__",
         [](const T &a, Other &b) { return not_equal(a, RHSSetup{}(b)); },

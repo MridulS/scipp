@@ -335,3 +335,36 @@ def test_comparison_with_str(small: sc.Variable) -> None:
     assert not (small == 'a string')
     with pytest.raises(TypeError):
         _ = small < 'a string'  # type: ignore[operator]
+
+
+@pytest.mark.parametrize(
+    "obj",
+    [
+        sc.scalar(1.0),
+        sc.array(dims=['x'], values=[1.0, 2.0]),
+        sc.DataArray(sc.scalar(1.0)),
+    ],
+    ids=['variable_scalar', 'variable_array', 'dataarray'],
+)
+def test_classes_defining_eq_are_unhashable(obj: sc.Variable | sc.DataArray) -> None:
+    # Variable and DataArray define elementwise __eq__ (returning a Variable /
+    # DataArray, not a bool), so Python semantics make them unhashable unless
+    # they define __hash__. pybind11 enforced this automatically; with nanobind
+    # it is restored explicitly.
+    assert type(obj).__hash__ is None
+    with pytest.raises(TypeError):
+        hash(obj)
+
+
+def test_coords_view_defining_eq_is_unhashable() -> None:
+    da = sc.DataArray(sc.scalar(1.0), coords={'x': sc.scalar(0.0)})
+    assert type(da.coords).__hash__ is None
+    with pytest.raises(TypeError):
+        hash(da.coords)
+
+
+def test_unit_keeps_intentional_hash() -> None:
+    # Unit defines both __eq__ and __hash__ on purpose; the unhashability
+    # restoration must not clobber an explicitly provided __hash__.
+    assert sc.Unit('m').__hash__ is not None
+    assert {sc.Unit('m'): 1}[sc.Unit('m')] == 1

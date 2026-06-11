@@ -45,10 +45,12 @@ void bind_helper_view(nb::module_ &m, const std::string &name) {
                     self.end());
               },
               nb::keep_alive<0, 1>());
-  if constexpr (!std::is_same_v<View<T>, values_view<T>>)
+  if constexpr (!std::is_same_v<View<T>, values_view<T>>) {
     cls.def("__eq__", [](const View<T> &self, const View<T> &other) {
       return self == other;
     });
+    unset_default_hash(cls);
+  }
 }
 
 template <class D> auto cast_to_dict_key(const nb::handle &obj) {

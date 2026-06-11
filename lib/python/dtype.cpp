@@ -93,6 +93,8 @@ objects containing binned data. They cannot be used directly to create arrays of
       .def("__repr__", [](const DType &self) {
         return "DType('" + to_string(self) + "')";
       });
+  // pybind11 set __hash__ = None when __eq__ was bound; restore parity.
+  PyDType.attr("__hash__") = nb::none();
 
   // Explicit list of dtypes to bind since core::dtypeNameRegistry contains
   // types that are for internal use only and are never returned to Python.

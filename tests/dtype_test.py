@@ -15,6 +15,15 @@ def test_dtype_comparison_equal(dt: sc.DType) -> None:
     assert dt == dt
 
 
+def test_dtype_is_unhashable() -> None:
+    # DType defines __eq__; Python (and pybind11) make such classes unhashable
+    # unless they define __hash__. nanobind does not do this automatically, so
+    # it is restored explicitly.
+    assert sc.DType.__hash__ is None
+    with pytest.raises(TypeError):
+        hash(sc.DType.float64)
+
+
 @pytest.mark.parametrize('other', [sc.DType.int32, sc.DType.float64, sc.DType.string])
 def test_dtype_comparison_not_equal(other: sc.DType) -> None:
     assert sc.DType.int64 != other
