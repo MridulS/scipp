@@ -4,6 +4,8 @@
 /// @author Simon Heybrock
 #pragma once
 
+#include <optional>
+
 #include "scipp/dataset/arithmetic.h"
 #include "scipp/dataset/astype.h"
 #include "scipp/dataset/generated_comparison.h"
@@ -183,11 +185,6 @@ struct Identity {
     return x;
   }
 };
-struct ScalarToVariable {
-  template <class T> scipp::Variable operator()(const T &x) const noexcept {
-    return x * scipp::sc_units::one;
-  }
-};
 
 template <class RHSSetup> struct OpBinder {
   // Returns a callable for use with nanobind's c.def() that implements an
@@ -359,28 +356,213 @@ static void bind_comparison(nanobind::class_<T, Ignored...> &c) {
   OpBinder<Identity>::comparison<Other>(c);
 }
 
+/// Convert a Python number to a 0-d dimensionless Variable, mirroring
+/// pybind11's overload resolution over the previous [double, int64_t]
+/// scalar operator overloads: floats (including np.float64, a subclass of
+/// float) become float64; objects providing __index__ (int, bool, numpy
+/// integers and bools) become int64; any other number (np.float32, ints
+/// too large for int64) becomes float64. Returns nullopt for non-numbers
+/// so that operators can return NotImplemented, which enables reflected
+/// operations on the other operand. Requires the GIL.
+inline std::optional<scipp::Variable> to_scalar_operand(const nb::object &obj) {
+  using namespace scipp;
+  if (PyFloat_Check(obj.ptr()))
+    return nb::cast<double>(obj) * sc_units::one;
+  if (PyIndex_Check(obj.ptr())) {
+    // PyNumber_Index implements true __index__ semantics; in contrast,
+    // __int__ would silently truncate, e.g., size-1 float arrays.
+    if (nb::object index = nb::steal(PyNumber_Index(obj.ptr()));
+        index.is_valid()) {
+      if (int64_t value = 0; nb::try_cast<int64_t>(index, value))
+        return value * sc_units::one;
+      // Too large for int64, fall through to double like pybind11's
+      // converting double overload did.
+    } else {
+      PyErr_Clear();
+    }
+  }
+  if (double value = 0.0; nb::try_cast<double>(obj, value))
+    return value * sc_units::one;
+  return std::nullopt;
+}
+
+/// Binds operators accepting Python number scalars via a single nb::object
+/// overload, registered after the overloads for bound types (which win the
+/// dispatch for Variable etc. operands). A plain [double, int64_t] overload
+/// pair, as used with pybind11, does not work with nanobind: its exact-match
+/// first dispatch pass rejects numpy scalars and bools, and the convert pass
+/// would then turn np.int64 into double, silently changing the result dtype.
+struct ScalarOpBinder {
+  template <class T, class Op> static auto scalar_op(Op op) {
+    // No call_guard: converting the operand requires the GIL; only the C++
+    // operation releases it.
+    return [op](const T &a, const nb::object &b) -> nb::object {
+      const auto operand = to_scalar_operand(b);
+      if (!operand)
+        return nb::borrow(nb::handle(Py_NotImplemented));
+      auto result = [&]() {
+        nb::gil_scoped_release release;
+        return op(a, *operand);
+      }();
+      return nb::cast(std::move(result));
+    };
+  }
+
+  template <class T, class Op> static auto scalar_inplace_op(Op op) {
+    return [op](nb::object &obj, const nb::object &b) -> nb::object {
+      const auto operand = to_scalar_operand(b);
+      if (!operand)
+        return nb::borrow(nb::handle(Py_NotImplemented));
+      auto &self = nb::cast<T &>(obj);
+      {
+        nb::gil_scoped_release release;
+        op(self, *operand);
+      }
+      return obj;
+    };
+  }
+
+  template <class T, class... Ignored>
+  static void binary(nanobind::class_<T, Ignored...> &c) {
+    using namespace scipp;
+    c.def("__add__",
+          scalar_op<T>([](const T &a, const Variable &b) { return a + b; }),
+          nb::is_operator());
+    c.def("__sub__",
+          scalar_op<T>([](const T &a, const Variable &b) { return a - b; }),
+          nb::is_operator());
+    c.def("__mul__",
+          scalar_op<T>([](const T &a, const Variable &b) { return a * b; }),
+          nb::is_operator());
+    c.def("__truediv__",
+          scalar_op<T>([](const T &a, const Variable &b) { return a / b; }),
+          nb::is_operator());
+    if constexpr (!std::is_same_v<T, Dataset>) {
+      c.def("__floordiv__", scalar_op<T>([](const T &a, const Variable &b) {
+              return floor_divide(a, b);
+            }),
+            nb::is_operator());
+      c.def("__mod__",
+            scalar_op<T>([](const T &a, const Variable &b) { return a % b; }),
+            nb::is_operator());
+      c.def("__pow__", scalar_op<T>([](const T &base, const Variable &exp) {
+              return pow(base, exp);
+            }),
+            nb::is_operator());
+    }
+  }
+
+  template <class T, class... Ignored>
+  static void reverse_binary(nanobind::class_<T, Ignored...> &c) {
+    using namespace scipp;
+    c.def("__radd__",
+          scalar_op<T>([](const T &a, const Variable &b) { return b + a; }),
+          nb::is_operator());
+    c.def("__rsub__",
+          scalar_op<T>([](const T &a, const Variable &b) { return b - a; }),
+          nb::is_operator());
+    c.def("__rmul__",
+          scalar_op<T>([](const T &a, const Variable &b) { return b * a; }),
+          nb::is_operator());
+    c.def("__rtruediv__",
+          scalar_op<T>([](const T &a, const Variable &b) { return b / a; }),
+          nb::is_operator());
+    if constexpr (!std::is_same_v<T, Dataset>) {
+      c.def("__rfloordiv__", scalar_op<T>([](const T &a, const Variable &b) {
+              return floor_divide(b, a);
+            }),
+            nb::is_operator());
+      c.def("__rmod__",
+            scalar_op<T>([](const T &a, const Variable &b) { return b % a; }),
+            nb::is_operator());
+      c.def("__rpow__", scalar_op<T>([](const T &exp, const Variable &base) {
+              return pow(base, exp);
+            }),
+            nb::is_operator());
+    }
+  }
+
+  template <class T, class... Ignored>
+  static void in_place_binary(nanobind::class_<T, Ignored...> &c) {
+    using namespace scipp;
+    c.def("__iadd__",
+          scalar_inplace_op<T>([](T &a, const Variable &b) { a += b; }),
+          nb::is_operator());
+    c.def("__isub__",
+          scalar_inplace_op<T>([](T &a, const Variable &b) { a -= b; }),
+          nb::is_operator());
+    c.def("__imul__",
+          scalar_inplace_op<T>([](T &a, const Variable &b) { a *= b; }),
+          nb::is_operator());
+    c.def("__itruediv__",
+          scalar_inplace_op<T>([](T &a, const Variable &b) { a /= b; }),
+          nb::is_operator());
+    if constexpr (!std::is_same_v<T, Dataset>) {
+      c.def("__imod__",
+            scalar_inplace_op<T>([](T &a, const Variable &b) { a %= b; }),
+            nb::is_operator());
+      c.def("__ifloordiv__", scalar_inplace_op<T>([](T &a, const Variable &b) {
+              floor_divide_equals(a, b);
+            }),
+            nb::is_operator());
+      if constexpr (!std::is_same_v<T, DataArray>) {
+        c.def("__ipow__",
+              scalar_inplace_op<T>(
+                  [](T &base, const Variable &exp) { pow(base, exp, base); }),
+              nb::is_operator());
+      }
+    }
+  }
+
+  template <class T, class... Ignored>
+  static void comparison(nanobind::class_<T, Ignored...> &c) {
+    using namespace scipp;
+    c.def("__eq__", scalar_op<T>([](const T &a, const Variable &b) {
+            return equal(a, b);
+          }),
+          nb::is_operator());
+    unset_default_hash(c);
+    c.def("__ne__", scalar_op<T>([](const T &a, const Variable &b) {
+            return not_equal(a, b);
+          }),
+          nb::is_operator());
+    c.def("__lt__", scalar_op<T>([](const T &a, const Variable &b) {
+            return less(a, b);
+          }),
+          nb::is_operator());
+    c.def("__gt__", scalar_op<T>([](const T &a, const Variable &b) {
+            return greater(a, b);
+          }),
+          nb::is_operator());
+    c.def("__le__", scalar_op<T>([](const T &a, const Variable &b) {
+            return less_equal(a, b);
+          }),
+          nb::is_operator());
+    c.def("__ge__", scalar_op<T>([](const T &a, const Variable &b) {
+            return greater_equal(a, b);
+          }),
+          nb::is_operator());
+  }
+};
+
 template <class T, class... Ignored>
 void bind_in_place_binary_scalars(nanobind::class_<T, Ignored...> &c) {
-  OpBinder<ScalarToVariable>::in_place_binary<double>(c);
-  OpBinder<ScalarToVariable>::in_place_binary<int64_t>(c);
+  ScalarOpBinder::in_place_binary(c);
 }
 
 template <class T, class... Ignored>
 void bind_binary_scalars(nanobind::class_<T, Ignored...> &c) {
-  OpBinder<ScalarToVariable>::binary<double>(c);
-  OpBinder<ScalarToVariable>::binary<int64_t>(c);
+  ScalarOpBinder::binary(c);
 }
 
 template <class T, class... Ignored>
 static void bind_reverse_binary_scalars(nanobind::class_<T, Ignored...> &c) {
-  OpBinder<ScalarToVariable>::reverse_binary<double>(c);
-  OpBinder<ScalarToVariable>::reverse_binary<int64_t>(c);
+  ScalarOpBinder::reverse_binary(c);
 }
 
 template <class T, class... Ignored>
 void bind_comparison_scalars(nanobind::class_<T, Ignored...> &c) {
-  OpBinder<ScalarToVariable>::comparison<double>(c);
-  OpBinder<ScalarToVariable>::comparison<int64_t>(c);
+  ScalarOpBinder::comparison(c);
 }
 
 template <class T, class... Ignored>
