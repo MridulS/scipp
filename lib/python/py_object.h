@@ -4,6 +4,8 @@
 /// @author Simon Heybrock
 #pragma once
 
+#include <utility>
+
 #include "scipp/core/dtype.h"
 
 #include "nanobind.h"
@@ -22,7 +24,13 @@ class PyObject {
 public:
   PyObject() = default;
   PyObject(PyObject &&other) = default;
-  PyObject &operator=(PyObject &&other) = default;
+  // Swap instead of the defaulted move-assignment: the latter would decref
+  // the previous value without acquiring the GIL. The moved-from object's
+  // GIL-acquiring destructor performs the decref instead.
+  PyObject &operator=(PyObject &&other) noexcept {
+    std::swap(m_object, other.m_object);
+    return *this;
+  }
   PyObject(const PyObject &other) : PyObject(other.m_object) {}
   PyObject &operator=(const PyObject &other) { return *this = PyObject(other); }
   ~PyObject();
