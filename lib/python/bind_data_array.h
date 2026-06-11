@@ -117,8 +117,11 @@ void bind_dict_update(nanobind::class_<T, Ignored...> &view, Set &&set_item) {
       },
       // An unnamed nb::arg() makes `other` positional-only. nanobind
       // requires an annotation for every parameter (including **kwargs)
-      // once any annotation is present.
+      // once any annotation is present. nb::sig restores the `other` name
+      // and the '/' marker in rendered docs, which the unnamed arg loses.
       nb::arg() = nb::none(), nb::arg("kwargs"),
+      nb::sig("def update(self, other: object | None = None, /, **kwargs) -> "
+              "None"),
       R"doc(Update items from dict-like or iterable.
 
 If ``other`` has a .keys() method, then update does:
