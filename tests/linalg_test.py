@@ -115,6 +115,30 @@ def test_vector_readonly_elements() -> None:
     assert not var.fields.x.values.flags['WRITEABLE']
 
 
+def test_readonly_vector_element_value_is_not_writeable() -> None:
+    # The single-element `.value` access goes through a different code path
+    # than `.values` (above): with nanobind, the Eigen caster would hand back
+    # a writable view into readonly data unless an explicit read-only ndarray
+    # is built. Guard that path here.
+    vec = sc.vector(value=[1, 2, 3], unit=sc.units.m)
+    var = sc.broadcast(vec, dims=['x'], shape=[2])
+    assert not var['x', 0].value.flags['WRITEABLE']
+
+
+def test_readonly_matrix_element_value_is_not_writeable_and_keeps_orientation() -> None:
+    matrix = sc.spatial.linear_transform(value=np.arange(9.0).reshape(3, 3))
+    var = sc.broadcast(matrix, dims=['x'], shape=[2])
+    element = var['x', 0].value
+    assert not element.flags['WRITEABLE']
+    # Guards the hardcoded column-major strides in the read-only matrix view.
+    np.testing.assert_array_equal(element, matrix.value)
+
+
+def test_writable_vector_element_value_is_writeable() -> None:
+    var = sc.vectors(dims=['x'], values=[[1, 2, 3]], unit=sc.units.m)
+    assert var['x', 0].value.flags['WRITEABLE']
+
+
 def test_elements_binned() -> None:
     data = sc.array(dims=['x'], values=[1, 2, 3, 4])
     var = sc.bins(dim='x', data=data)

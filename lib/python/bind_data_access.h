@@ -367,6 +367,26 @@ private:
       // nb::rv_policy::reference_internal in the default case
       // below.
       return nb::cast(scalar, nb::rv_policy::move);
+    } else if constexpr (std::is_const_v<std::remove_reference_t<Scalar>> &&
+                         (std::is_same_v<std::decay_t<Scalar>,
+                                         Eigen::Vector3d> ||
+                          std::is_same_v<std::decay_t<Scalar>,
+                                         Eigen::Matrix3d>)) {
+      // nanobind's Eigen caster casts away constness, which would yield a
+      // writable numpy view into a readonly variable. Build an explicit
+      // read-only view instead (pybind11 cleared the WRITEABLE flag).
+      if constexpr (std::is_same_v<std::decay_t<Scalar>, Eigen::Vector3d>) {
+        return nb::cast(
+            nb::ndarray<nb::numpy, const double>(scalar.data(), {3}, parent));
+      } else {
+        // Column-major strides, valid only because Eigen defaults to column
+        // storage; guard against a global EIGEN_DEFAULT_TO_ROW_MAJOR.
+        static_assert(!Eigen::Matrix3d::IsRowMajor);
+        static constexpr std::array<size_t, 2> shape{3, 3};
+        static constexpr std::array<int64_t, 2> strides{1, 3};
+        return nb::cast(nb::ndarray<nb::numpy, const double>(
+            scalar.data(), 2, shape.data(), parent, strides.data()));
+      }
     } else {
       // Returning reference to element in variable. Return-policy
       // reference_internal keeps alive `parent`. Note that an attempt to
