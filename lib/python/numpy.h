@@ -76,15 +76,17 @@ auto cast_to_array_like(const nb::object &obj, const sc_units::Unit unit) {
     return nb::cast<py_array_t<PyType>>(
         np.attr("asarray")(obj).attr("astype")("int64"));
   } else if constexpr (std::is_standard_layout_v<T> && std::is_trivial_v<T>) {
-    // np.asarray converts lists, scalars, and mismatched dtypes to an array
-    // of the target dtype (no copy if the input already matches), applying
-    // the same automatic conversions (such as integer to double) as
-    // pybind11's converting py::array_t cast did. Passing the dtype to numpy
-    // makes conversion failures raise numpy's descriptive OverflowError /
+    // Fast path: the input is already a numpy array of the target dtype, so no
+    // conversion (and no Python-level numpy call) is needed.
+    if (py_array_t<PyType> array; nb::try_cast(obj, array, /*convert=*/false))
+      return array;
+    // Otherwise convert via numpy. np.asarray handles lists, scalars, and
+    // mismatched dtypes with the same automatic conversions (such as integer
+    // to double) as pybind11's converting py::array_t cast did; passing the
+    // dtype makes conversion failures raise numpy's descriptive OverflowError /
     // ValueError instead of an opaque cast error.
-    const auto np = nb::module_::import_("numpy");
-    return nb::cast<py_array_t<PyType>>(
-        np.attr("asarray")(obj, numpy_dtype_name<PyType>()));
+    return nb::cast<py_array_t<PyType>>(nb::module_::import_("numpy").attr(
+        "asarray")(obj, numpy_dtype_name<PyType>()));
   } else {
     // nb::ndarray only supports arithmetic dtypes. Use a simple but expensive
     // solution for other types (object arrays, string arrays).
