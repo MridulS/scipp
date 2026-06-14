@@ -34,6 +34,7 @@ nanobind_add_module(
   groupby.cpp
   histogram.cpp
   numpy.cpp
+  numpy_c_api.cpp
   operations.cpp
   py_object.cpp
   scipp.cpp

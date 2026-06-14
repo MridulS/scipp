@@ -69,9 +69,9 @@ The headline figures:
 The gains are concentrated in dispatch-bound code.
 **Large-array and kernel-bound operations are unchanged**, as expected for compute-bound, framework-independent work: small binary ops (``a + b``, 4 elements) remain ~1.2x (C++ kernel bound), and the large 1e6-element values setter is at parity.
 
-There is one notable regression: the ``.values`` getter on small arrays is **~1.5x slower** (0.6 µs to 0.9 µs, i.e. ~0.66x), and the analogous ``attr_values_large`` case is likewise ~0.66x.
-Both stem from nanobind's ``ndarray``-to-numpy export overhead, not from a memcpy control; the zero-copy semantics themselves are unchanged.
-We therefore do **not** claim blanket large-array parity: bulk math is unchanged, but the numpy *export* path carries a fixed nanobind overhead.
+nanobind's stock ``nb::ndarray`` numpy export (which allocates a wrapper object and calls ``numpy.array(wrapper)`` at the Python level) initially made the ``.values`` getter ~1.5x *slower* than pybind11.
+The ``.values`` getter is a hot path, so it instead builds the numpy array directly via the numpy C API (``PyArray_NewFromDescr`` + ``PyArray_SetBaseObject``), resolved at runtime from numpy's ``_ARRAY_API`` capsule so that no numpy headers are needed at build time — the same approach pybind11 used internally.
+This makes ``.values`` ~2x *faster* than the pybind11 baseline.
 
 Constraints
 ~~~~~~~~~~~
@@ -152,9 +152,7 @@ Negative:
   - ``bytes`` objects are no longer auto-decoded to ``str`` (e.g. as dict keys, dimension names, or unit strings).
   - Arithmetic operand dtype rules follow numpy: ``int64_var + np.int64(x)`` correctly stays int64 (parity with the pre-migration behavior), and ``np.True_`` as an operand resolves to float64 on numpy ≥ 2 (numpy removed ``np.bool_.__index__``).
 
-- The ``.values`` numpy-export path carries a fixed nanobind overhead, making the getter on small arrays ~1.5x slower; bulk array math is unaffected.
 - Internal mechanics required care: ``nb::cast_error`` derives from ``std::bad_cast`` (not ``std::runtime_error``); ``__hash__`` must be set to ``None`` on ``__eq__``-defining classes (pybind11 did this automatically); weakref support and rendered ``update()`` signatures had to be restored explicitly.
-- int64 ``.values`` arrays carry the ``NPY_LONGLONG`` descriptor (type num 9 rather than 7); it compares equal to int64 but differs in identity.
 
 Remaining work:
 ~~~~~~~~~~~~~~~

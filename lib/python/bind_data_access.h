@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <variant>
 
 #include "scipp/core/dtype.h"
@@ -20,6 +21,7 @@
 #include "dtype.h"
 #include "nanobind.h"
 #include "numpy.h"
+#include "numpy_c_api.h"
 #include "py_object.h"
 #include "unit.h"
 
@@ -38,13 +40,6 @@ template <class T> void init_variances(T &obj) {
     obj.data().setVariances(Variable(obj.data()));
   else
     obj.setVariances(Variable(obj));
-}
-
-/// Convert strides for nanobind; nb::ndarray expects strides in elements,
-/// not bytes, which matches scipp's internal strides.
-inline std::vector<int64_t>
-numpy_strides(const std::span<const scipp::index> &s) {
-  return {s.begin(), s.end()};
 }
 
 template <typename T> decltype(auto) get_data_variable(T &&x) {
@@ -68,44 +63,44 @@ class DataAccessHelper {
 
   template <class Getter, class T, class View>
   static nb::object as_py_array_t_impl(View &&view) {
-    // nb::ndarray cannot express datetime64; expose the memory as int64 and
-    // reinterpret on the Python side below. This reinterpret_cast (and reusing
-    // the element strides unchanged) is only valid because time_point is a
-    // standard-layout wrapper around a single int64_t of the same size.
+    // datetime64 cannot be expressed by a numpy type number; expose the memory
+    // as int64 and reinterpret on the Python side below. Treating the buffer as
+    // int64 is only valid because time_point is a standard-layout wrapper
+    // around a single int64_t of the same size.
     static_assert(sizeof(scipp::core::time_point) == sizeof(int64_t) &&
                   std::is_standard_layout_v<scipp::core::time_point>);
     using Elem = std::conditional_t<std::is_same_v<T, scipp::core::time_point>,
                                     int64_t, T>;
     auto &&var = get_data_variable(view);
     const auto &shape = view.dims().shape();
-    const std::vector<size_t> sizes(shape.begin(), shape.end());
-    const auto strides = numpy_strides(var.strides());
-    const auto owner = get_data_variable_concept_handle(view);
-    const auto make_array = [&](auto *data) {
-      // A const element type yields a read-only numpy array, replacing
-      // pybind11's manual clearing of the WRITEABLE flag.
-      using Array =
-          nb::ndarray<nb::numpy, std::remove_pointer_t<decltype(data)>>;
-      return nb::cast(
-          Array(data, sizes.size(), sizes.data(), owner, strides.data()));
-    };
-    const auto elem_ptr = [](auto *data) {
-      // Reinterpret time_point as int64 while preserving constness; in the
-      // instantiation for read-only element types the pointer is const in
-      // both branches below.
-      if constexpr (std::is_const_v<std::remove_pointer_t<decltype(data)>>)
-        return reinterpret_cast<const Elem *>(data);
-      else
-        return reinterpret_cast<Elem *>(data);
-    };
-    nb::object array =
-        var.is_readonly()
-            ? make_array(
-                  elem_ptr(Getter::template get<T>(std::as_const(view)).data()))
-            : make_array(elem_ptr(Getter::template get<T>(view).data()));
+    const auto element_strides = var.strides();
+    const auto ndim = shape.size();
+    constexpr size_t max_ndim = 16; // scipp variables are at most 6-dimensional.
+    if (ndim > max_ndim)
+      throw std::runtime_error(
+          "Variable has more dimensions than supported for numpy export.");
+    std::array<int64_t, max_ndim> dims{};
+    std::array<int64_t, max_ndim> byte_strides{};
+    constexpr int64_t itemsize = sizeof(Elem);
+    for (size_t i = 0; i < ndim; ++i) {
+      dims[i] = shape[i];
+      byte_strides[i] = element_strides[i] * itemsize;
+    }
+    const bool writeable = !var.is_readonly();
+    // numpy only sees the byte buffer plus the type number, so the element
+    // pointer can be handed over without an explicit reinterpret to Elem.
+    void *data = const_cast<void *>(
+        writeable
+            ? static_cast<const void *>(Getter::template get<T>(view).data())
+            : static_cast<const void *>(
+                  Getter::template get<T>(std::as_const(view)).data()));
+    nb::object array = scipp::python::make_numpy_array(
+        scipp::python::numpy_typenum<Elem>(), data, ndim, dims.data(),
+        byte_strides.data(), writeable,
+        get_data_variable_concept_handle(view));
     if constexpr (std::is_same_v<T, scipp::core::time_point>) {
-      // ndarray.view is zero-copy, preserves strides, and propagates the
-      // read-only flag.
+      // .view() is zero-copy, preserves strides, and propagates the read-only
+      // flag.
       return array.attr("view")("datetime64[" +
                                 to_numpy_time_string(view.unit()) + ']');
     } else {
