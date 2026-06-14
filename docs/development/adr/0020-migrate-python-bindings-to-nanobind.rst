@@ -159,6 +159,6 @@ Negative:
 Remaining work:
 ~~~~~~~~~~~~~~~
 
-- Free-threaded wheels (e.g. ``cp314t``) are not yet restored.
+- Free-threading is opted back in at the module level via the ``FREE_THREADED`` build flag (restoring the previous ``py::mod_gil_not_used()`` declaration); building and running the free-threaded wheels (e.g. ``cp314t``) under a free-threaded interpreter still needs to be exercised in CI.
 - Cross-platform CI and wheel/conda packaging need to be exercised against the nanobind CMake configuration.
 - Downstream packages with their own C++ extensions (scippneutron, scippnexus, ess*, Mantid converters) must be audited and migrated, since frameworks cannot exchange bound types.

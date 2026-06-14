@@ -9,11 +9,17 @@
 #
 # NOMINSIZE: nanobind defaults to -Os for binding code; scipp's bindings sit on
 # hot paths (element access, slicing), so keep regular optimization levels.
+#
+# FREE_THREADED: declare that the module does not require the GIL (the
+# equivalent of pybind11's py::mod_gil_not_used()). nanobind auto-disables this
+# flag unless the interpreter itself is free-threaded, so it is a no-op for
+# regular GIL builds and only takes effect for free-threaded wheels.
 nanobind_add_module(
   _scipp
   NB_STATIC
   NOMINSIZE
   NB_SUPPRESS_WARNINGS
+  FREE_THREADED
   bind_units.cpp
   bins.cpp
   comparison.cpp
