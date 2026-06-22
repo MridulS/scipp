@@ -1,0 +1,39 @@
+name: win-pixi-build-experiment
+
+# THROWAWAY EXPERIMENT (do not merge).
+# Validates the *unified* Windows CI path on win-64, mirroring the build_and_test
+# steps in pr_and_main.yml exactly:
+#   * pixi run -e dev cpp-test  -> manual cmake + Ninja C++ build + gtest suite
+#   * pixi run -e test test     -> pixi-build-cmake build + full pytest suite
+# The dev cpp-test path on Windows was previously unverified; this confirms it
+# before we rely on it in the real CI.
+
+on:
+  push:
+    branches: [pixi-win-build-experiment]
+  workflow_dispatch:
+
+jobs:
+  win-unified-ci:
+    name: unified CI on win-64 (dev cpp-test + test test)
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          fetch-depth: 0 # history required so cmake can determine version
+
+      - uses: egor-tensin/vs-shell@v2 # MSVC dev environment for the dev env's Ninja C++ build.
+
+      - uses: prefix-dev/setup-pixi@v0.9.4
+        with:
+          environments: dev test
+          frozen: true
+          cache: true
+
+      - name: C++ tests via dev env (manual cmake + Ninja)
+        run: pixi run -e dev cpp-test
+
+      - name: Python tests via test env (pixi-build-cmake)
+        run: pixi run -e test test
