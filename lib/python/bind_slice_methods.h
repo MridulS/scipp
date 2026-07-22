@@ -296,7 +296,7 @@ void bind_slice_methods(nanobind::class_<T, Ignored...> &c) {
       return self.dims().size(0);
     });
     c.def("_ipython_key_completions_", [](T &self) {
-      nb::list out;
+      nb::typed<nb::list, nb::str> out;
       for (const auto &dim : self.dims()) {
         out.append(dim.name());
       }

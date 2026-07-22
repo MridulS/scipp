@@ -75,7 +75,8 @@ class DataAccessHelper {
     const auto &shape = view.dims().shape();
     const auto element_strides = var.strides();
     const auto ndim = shape.size();
-    constexpr size_t max_ndim = 16; // scipp variables are at most 6-dimensional.
+    constexpr size_t max_ndim =
+        16; // scipp variables are at most 6-dimensional.
     if (ndim > max_ndim)
       throw std::runtime_error(
           "Variable has more dimensions than supported for numpy export.");
@@ -96,8 +97,7 @@ class DataAccessHelper {
                   Getter::template get<T>(std::as_const(view)).data()));
     nb::object array = scipp::python::make_numpy_array(
         scipp::python::numpy_typenum<Elem>(), data, ndim, dims.data(),
-        byte_strides.data(), writeable,
-        get_data_variable_concept_handle(view));
+        byte_strides.data(), writeable, get_data_variable_concept_handle(view));
     if constexpr (std::is_same_v<T, scipp::core::time_point>) {
       // .view() is zero-copy, preserves strides, and propagates the read-only
       // flag.
@@ -487,6 +487,16 @@ using as_ElementArrayView = as_ElementArrayViewImpl<
     bucket<Dataset>, Eigen::Vector3d, Eigen::Matrix3d, scipp::python::PyObject,
     Eigen::Affine3d, scipp::core::Quaternion, scipp::core::Translation>;
 
+/// Build a tuple of length n with elements produced by elem(i).
+template <class F> nb::tuple make_tuple_n(const size_t n, F &&elem) {
+  auto tuple = nb::steal<nb::tuple>(PyTuple_New(static_cast<Py_ssize_t>(n)));
+  for (size_t i = 0; i < n; ++i) {
+    PyTuple_SET_ITEM(tuple.ptr(), static_cast<Py_ssize_t>(i),
+                     nb::cast(elem(i)).release().ptr());
+  }
+  return tuple;
+}
+
 template <class T, class... Ignored>
 void bind_common_data_properties(nanobind::class_<T, Ignored...> &c) {
   c.def_prop_ro(
@@ -494,11 +504,9 @@ void bind_common_data_properties(nanobind::class_<T, Ignored...> &c) {
       [](const T &self) {
         const auto &labels = self.dims().labels();
         const auto ndim = static_cast<size_t>(self.ndim());
-        nb::list dims;
-        for (size_t i = 0; i < ndim; ++i) {
-          dims.append(labels[i].name());
-        }
-        return nb::tuple(dims);
+        auto dims = make_tuple_n(
+            ndim, [&](const size_t i) { return labels[i].name(); });
+        return nb::typed<nb::tuple, nb::str, nb::ellipsis>(std::move(dims));
       },
       R"(Dimension labels of the data (read-only).
 
@@ -558,11 +566,9 @@ Examples
       [](const T &self) {
         const auto &sizes = self.dims().sizes();
         const auto ndim = static_cast<size_t>(self.ndim());
-        nb::list shape;
-        for (size_t i = 0; i < ndim; ++i) {
-          shape.append(sizes[i]);
-        }
-        return nb::tuple(shape);
+        auto shape =
+            make_tuple_n(ndim, [&](const size_t i) { return sizes[i]; });
+        return nb::typed<nb::tuple, int, nb::ellipsis>(std::move(shape));
       },
       R"(Shape of the data (read-only).
 
@@ -584,7 +590,7 @@ Examples
         const auto &dims = self.dims();
         // Use nb::dict directly instead of std::map in order to guarantee
         // that items are stored in the order of insertion.
-        nb::dict sizes;
+        nb::typed<nb::dict, nb::str, int> sizes;
         for (const auto label : dims.labels()) {
           sizes[label.name().c_str()] = dims[label];
         }

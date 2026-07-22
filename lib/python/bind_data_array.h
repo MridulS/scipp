@@ -208,10 +208,12 @@ void bind_dict_popitem(nanobind::class_<T, Ignored...> &view) {
     const auto item = nb::cast(self.extract(key));
 
     // nb::tuple is immutable, so build the result via nb::make_tuple.
+    using Pair = nb::typed<nb::tuple, nb::str,
+                           std::decay_t<decltype(self.extract(key))>>;
     if constexpr (std::is_same_v<typename T::key_type, Dim>)
-      return nb::make_tuple(key.name(), item);
+      return Pair(nb::make_tuple(key.name(), item));
     else
-      return nb::make_tuple(key, item);
+      return Pair(nb::make_tuple(key, item));
   });
 }
 
@@ -234,7 +236,10 @@ void bind_dict_copy(nanobind::class_<T, Ignored...> &view) {
           nb::call_guard<nb::gil_scoped_release>(), "Return a (shallow) copy.")
       .def(
           "__deepcopy__",
-          [](const T &self, const nb::dict &) { return copy(self); },
+          [](const T &self,
+             const nb::typed<nb::dict, nb::object, nb::object> &) {
+            return copy(self);
+          },
           nb::call_guard<nb::gil_scoped_release>(), "Return a (deep) copy.");
 }
 
@@ -324,7 +329,7 @@ void bind_mutable_view(nb::module_ &m, const std::string &name,
           R"(view on self's items)")
       .def("_ipython_key_completions_",
            [](const T &self) {
-             nb::list out;
+             nb::typed<nb::list, nb::str> out;
              const auto end = self.keys_end();
              for (auto it = self.keys_begin(); it != end; ++it) {
                out.append(*it);
@@ -372,7 +377,7 @@ void bind_mutable_view_no_dim(nb::module_ &m, const std::string &name,
           R"(view on self's items)")
       .def("_ipython_key_completions_",
            [](const T &self) {
-             nb::list out;
+             nb::typed<nb::list, nb::str> out;
              const auto end = self.keys_end();
              for (auto it = self.keys_begin(); it != end; ++it) {
                out.append(it->name());

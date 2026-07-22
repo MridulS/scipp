@@ -147,7 +147,7 @@ Access a data item in the dataset:
     return nb::try_cast<std::string>(key, name) && self.contains(name);
   });
   c.def("_ipython_key_completions_", [](Dataset &self) {
-    nb::list out;
+    nb::typed<nb::list, nb::str> out;
     const auto end = self.keys_end();
     for (auto it = self.keys_begin(); it != end; ++it) {
       out.append(*it);

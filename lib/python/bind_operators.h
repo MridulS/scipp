@@ -67,7 +67,9 @@ void bind_common_operators(nanobind::class_<T, Ignored...> &c) {
       nb::call_guard<nb::gil_scoped_release>(), "Return a (shallow) copy.");
   c.def(
        "__deepcopy__",
-       [](const T &self, const nb::dict &) { return copy(self); },
+       [](const T &self, const nb::typed<nb::dict, nb::object, nb::object> &) {
+         return copy(self);
+       },
        nb::call_guard<nb::gil_scoped_release>(), "Return a (deep) copy.")
       .def(
           "__sizeof__",
