@@ -22,7 +22,7 @@ python = ["3.11.*", "3.12.*", "3.13.*", "3.14.*", "3.14.* *_cp314t"]
 [workspace.dependencies]
 eigen = "3.4.*"
 libboost-headers = ">=1.88"
-nanobind = "2.12.*"
+nanobind = "2.13.*"
 tbb = "2023.0.*"
 tbb-devel = "2023.0.*"
 gtest = "1.15.*"

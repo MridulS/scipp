@@ -4,7 +4,7 @@ requires = [
   "scikit-build-core",
   # Keep in sync with the nanobind pin in pixi.toml, so wheels and conda
   # packages build against the same nanobind.
-  "nanobind>=2.12,<3",
+  "nanobind>=2.13,<3",
 ]
 build-backend = "scikit_build_core.build"
 
