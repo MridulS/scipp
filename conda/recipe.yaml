@@ -74,7 +74,9 @@ tests:
         - cmake
         - h5py
         - hypothesis
-        - ipykernel
+        # No ipykernel (unlike the feedstock recipe): scipp's tests never
+        # import it, and it has no win-64 cp314t build, which would make the
+        # free-threaded Windows test environment unsolvable.
         - numba
         - numpy
         - pandas
