@@ -44,8 +44,11 @@ jobs:
         run: |
           echo "python:" > dynamic_var.yaml
           if [[ "${{ inputs.python-version }}" == "3.14t" ]]; then
-            echo "- 3.14.* *_cp314" >> dynamic_var.yaml
-            echo "is_freethreading: true" >> dynamic_var.yaml
+            # Explicit cp314t build string selects the free-threaded python;
+            # rattler-build requires variant values to be lists.
+            echo "- 3.14.* *_cp314t" >> dynamic_var.yaml
+            echo "is_freethreading:" >> dynamic_var.yaml
+            echo "- true" >> dynamic_var.yaml
           elif [[ "${{ inputs.python-version }}" == "3.13" || "${{ inputs.python-version }}" == "3.14" ]]; then
             echo "- ${{ inputs.python-version }}.* *_cp$(echo ${{ inputs.python-version }} | tr -d '.')" >> dynamic_var.yaml
           else
