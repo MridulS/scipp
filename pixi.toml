@@ -1,7 +1,10 @@
 [workspace]
 channels = ["conda-forge"]
 name = "scipp"
-platforms = ["linux-64", "osx-arm64", "win-64"]
+# linux-aarch64 and osx-64 exist only for the `package` environment (weekly CI
+# builds conda packages on native arm-linux and intel-mac runners); the dev/CI
+# features below restrict all other environments to the first three platforms.
+platforms = ["linux-64", "osx-arm64", "win-64", "linux-aarch64", "osx-64"]
 preview = ["pixi-build"]
 # pixi-build is still a preview feature; older pixi versions have incompatible
 # source-package/lockfile behavior. Keep in sync with `pixi-version` in CI.
@@ -71,12 +74,18 @@ JUPYTER_PLATFORM_DIRS = "1"
 # a dedicated feature -- NOT the default feature -- so the `dev` environment
 # (manual incremental cmake builds) can omit it and avoid a slow full rebuild on
 # `pixi install -e dev`. Only environments listing `build` auto-build the extension.
+[feature.build]
+platforms = ["linux-64", "osx-arm64", "win-64"]
+
 [feature.build.dependencies]
 scipp = { path = "." }
 
 # ---------------------------------------------------------------------------
 # Dev feature (manual cmake builds for incremental development)
 # ---------------------------------------------------------------------------
+
+[feature.dev]
+platforms = ["linux-64", "osx-arm64", "win-64"]
 
 [feature.dev.dependencies]
 # python/numpy come from the default feature (the dev env keeps it, see below).
@@ -188,6 +197,9 @@ linkcheck = { cmd = "python -m sphinx -j4 -v -b linkcheck -d doctrees docs html"
 # ---------------------------------------------------------------------------
 # Lint feature
 # ---------------------------------------------------------------------------
+
+[feature.lint]
+platforms = ["linux-64", "osx-arm64", "win-64"]
 
 [feature.lint.dependencies]
 pre-commit = "*"
