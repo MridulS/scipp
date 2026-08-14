@@ -1,0 +1,317 @@
+{
+  "meta": {
+    "scipp_version": "26.7.0.dev2",
+    "binding_framework": "pybind11",
+    "python": "3.14.5",
+    "numpy": "2.4.6",
+    "platform": "macOS-26.6-arm64-arm-64bit-Mach-O",
+    "machine": "arm64"
+  },
+  "import_time": {
+    "ext_self_ms": 28.483,
+    "scipp_total_ms": 228.163
+  },
+  "binary_sizes": {
+    "_scipp.so": 11627632,
+    "libscipp-core.dylib": 395728,
+    "libscipp-dataset.dylib": 15400816,
+    "libscipp-units.dylib": 173488,
+    "libscipp-variable.dylib": 22390400
+  },
+  "results": {
+    "scalar_create": {
+      "ns_min": 1967.586249957094,
+      "ns_median": 1976.3543749286328,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "scalar_create_with_unit": {
+      "ns_min": 1600.9629200561903,
+      "ns_median": 1604.9200000998098,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "scalar_create_kwargs": {
+      "ns_min": 18317.802049568854,
+      "ns_median": 18330.943750333972,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "variable_create_direct": {
+      "ns_min": 19321.270850196015,
+      "ns_median": 19356.40625015367,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "scalar_create_unit_obj": {
+      "ns_min": 1595.2754201134667,
+      "ns_median": 1603.3560399955604,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "unit_create_from_str": {
+      "ns_min": 576.4280820148997,
+      "ns_median": 582.5378320296295,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "index_create": {
+      "ns_min": 1762.7581251144875,
+      "ns_median": 1782.7902099816129,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "array_create_from_numpy_small": {
+      "ns_min": 19648.108349065296,
+      "ns_median": 19746.09375029104,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "array_create_from_list": {
+      "ns_min": 20167.612499790266,
+      "ns_median": 20240.062501397915,
+      "n_loops": 10000,
+      "repeats": 9
+    },
+    "zeros_small": {
+      "ns_min": 2717.8787501179613,
+      "ns_median": 2757.9162499750964,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "dataarray_create": {
+      "ns_min": 1188.6152050283272,
+      "ns_median": 1197.3350000334904,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "dataset_create": {
+      "ns_min": 1130.4881250543986,
+      "ns_median": 1136.5931249747518,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "attr_unit": {
+      "ns_min": 362.17604199191555,
+      "ns_median": 365.41795800440013,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "attr_dims": {
+      "ns_min": 184.0472085023066,
+      "ns_median": 185.44397949881386,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "attr_shape": {
+      "ns_min": 176.88952101161703,
+      "ns_median": 178.27797899371944,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "attr_sizes": {
+      "ns_min": 204.4229579914827,
+      "ns_median": 206.36691700201482,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "attr_ndim": {
+      "ns_min": 154.03564600273967,
+      "ns_median": 156.0536460019648,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "attr_dtype": {
+      "ns_min": 368.419125006767,
+      "ns_median": 372.4827909900341,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "attr_value_scalar": {
+      "ns_min": 266.1870000010822,
+      "ns_median": 267.26833399152383,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "attr_values_small": {
+      "ns_min": 601.7356659867801,
+      "ns_median": 605.9927500318736,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "attr_values_large": {
+      "ns_min": 602.7570000151172,
+      "ns_median": 604.2064999928698,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "dataarray_data": {
+      "ns_min": 384.00516600813717,
+      "ns_median": 387.2262920194771,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "dataarray_coords_getitem": {
+      "ns_min": 878.7207499844953,
+      "ns_median": 889.3750820425339,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "dataset_getitem": {
+      "ns_min": 645.761834050063,
+      "ns_median": 648.7396659795195,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "dataset_keys": {
+      "ns_min": 239841.83301217854,
+      "ns_median": 242496.1669894401,
+      "n_loops": 1000,
+      "repeats": 9
+    },
+    "dataset_iterate": {
+      "ns_min": 240614.91698375903,
+      "ns_median": 242928.49999619648,
+      "n_loops": 1000,
+      "repeats": 9
+    },
+    "iterate_str_variable": {
+      "ns_min": 244229.16598268782,
+      "ns_median": 244728.29201840798,
+      "n_loops": 1000,
+      "repeats": 9
+    },
+    "unit_eq": {
+      "ns_min": 207.4921669845935,
+      "ns_median": 209.75724997697398,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "getitem_label_int": {
+      "ns_min": 1237.3852050222922,
+      "ns_median": 1241.7829201149289,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "getitem_label_slice": {
+      "ns_min": 1469.6872899367008,
+      "ns_median": 1484.468749986263,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "getitem_positional_int": {
+      "ns_min": 517.409581982065,
+      "ns_median": 518.4071679832414,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "getitem_2d": {
+      "ns_min": 1252.2775000252295,
+      "ns_median": 1257.8966699948069,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "getitem_ellipsis": {
+      "ns_min": 1530.9329149022233,
+      "ns_median": 1544.6208349021617,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "add_small": {
+      "ns_min": 2095.1979100937024,
+      "ns_median": 2136.9554102420807,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "add_scalar_broadcast": {
+      "ns_min": 2056.641670060344,
+      "ns_median": 2097.0908299204893,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "multiply_small": {
+      "ns_min": 2128.062499978114,
+      "ns_median": 2146.197910187766,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "compare_eq_small": {
+      "ns_min": 2059.720830002334,
+      "ns_median": 2070.799579960294,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "identical_small": {
+      "ns_min": 1678.2645850616973,
+      "ns_median": 1687.4829199514352,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "sum_small": {
+      "ns_min": 2433.0537498462945,
+      "ns_median": 2453.726249805186,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "copy_shallow": {
+      "ns_min": 721.4971680077724,
+      "ns_median": 722.9648319771513,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "copy_deep_small": {
+      "ns_min": 1875.2637499710545,
+      "ns_median": 1895.4897949879523,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "unit_conversion_scalar": {
+      "ns_min": 2864.447920001112,
+      "ns_median": 2913.8916698866524,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "asarray_small": {
+      "ns_min": 753.1855840352364,
+      "ns_median": 755.8055840199813,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "values_roundtrip_small": {
+      "ns_min": 20411.64579859469,
+      "ns_median": 20621.16249871906,
+      "n_loops": 10000,
+      "repeats": 9
+    },
+    "str_scalar": {
+      "ns_min": 2355.7041698950343,
+      "ns_median": 2367.158330162056,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "sizeof": {
+      "ns_min": 221.06920802616514,
+      "ns_median": 221.64591701584868,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "iadd_small": {
+      "ns_min": 1657.8889600350522,
+      "ns_median": 1660.1575000095181,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "assign_values_small": {
+      "ns_min": 693.0539999739267,
+      "ns_median": 704.351166030392,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "assign_values_large": {
+      "ns_min": 77520.8915991243,
+      "ns_median": 78830.96680161543,
+      "n_loops": 5000,
+      "repeats": 9
+    }
+  }
+}

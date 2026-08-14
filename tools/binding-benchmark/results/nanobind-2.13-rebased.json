@@ -1,0 +1,317 @@
+{
+  "meta": {
+    "scipp_version": "26.7.0.dev18",
+    "binding_framework": "nanobind",
+    "python": "3.14.5",
+    "numpy": "2.4.6",
+    "platform": "macOS-26.6-arm64-arm-64bit-Mach-O",
+    "machine": "arm64"
+  },
+  "import_time": {
+    "ext_self_ms": 26.387,
+    "scipp_total_ms": 248.661
+  },
+  "binary_sizes": {
+    "_scipp.so": 2478880,
+    "libscipp-core.dylib": 394592,
+    "libscipp-dataset.dylib": 15399688,
+    "libscipp-units.dylib": 172360,
+    "libscipp-variable.dylib": 22389272
+  },
+  "results": {
+    "scalar_create": {
+      "ns_min": 474.6034999843687,
+      "ns_median": 475.59616598300636,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "scalar_create_with_unit": {
+      "ns_min": 499.06658398685977,
+      "ns_median": 500.9452499798499,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "scalar_create_kwargs": {
+      "ns_min": 10380.312500637956,
+      "ns_median": 10461.962499539368,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "variable_create_direct": {
+      "ns_min": 11242.377049347851,
+      "ns_median": 11334.095848724246,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "scalar_create_unit_obj": {
+      "ns_min": 472.29508397867903,
+      "ns_median": 473.5509160091169,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "unit_create_from_str": {
+      "ns_min": 314.208708005026,
+      "ns_median": 315.5377920193132,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "index_create": {
+      "ns_min": 525.1820820267312,
+      "ns_median": 527.5590840028599,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "array_create_from_numpy_small": {
+      "ns_min": 11318.827050854452,
+      "ns_median": 11360.599999898113,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "array_create_from_list": {
+      "ns_min": 12491.374999808613,
+      "ns_median": 12551.245850045234,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "zeros_small": {
+      "ns_min": 1219.0324999392033,
+      "ns_median": 1238.3593749837019,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "dataarray_create": {
+      "ns_min": 486.8136660079471,
+      "ns_median": 489.7976659704,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "dataset_create": {
+      "ns_min": 544.7698340285569,
+      "ns_median": 550.8205840014853,
+      "n_loops": 500000,
+      "repeats": 9
+    },
+    "attr_unit": {
+      "ns_min": 113.60091700043995,
+      "ns_median": 114.55608349933755,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "attr_dims": {
+      "ns_min": 68.20913340197876,
+      "ns_median": 68.45980000216514,
+      "n_loops": 5000000,
+      "repeats": 9
+    },
+    "attr_shape": {
+      "ns_min": 58.714150002924725,
+      "ns_median": 58.86056660092436,
+      "n_loops": 5000000,
+      "repeats": 9
+    },
+    "attr_sizes": {
+      "ns_min": 88.4821749990806,
+      "ns_median": 89.1766416025348,
+      "n_loops": 5000000,
+      "repeats": 9
+    },
+    "attr_ndim": {
+      "ns_min": 47.99975820351392,
+      "ns_median": 48.07569159893319,
+      "n_loops": 5000000,
+      "repeats": 9
+    },
+    "attr_dtype": {
+      "ns_min": 134.6849999972619,
+      "ns_median": 135.60843750019558,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "attr_value_scalar": {
+      "ns_min": 172.06154149607755,
+      "ns_median": 172.2314795042621,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "attr_values_small": {
+      "ns_min": 242.61074999230914,
+      "ns_median": 244.1656670125667,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "attr_values_large": {
+      "ns_min": 249.20695900800638,
+      "ns_median": 252.63999999151565,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "dataarray_data": {
+      "ns_min": 139.01474999147467,
+      "ns_median": 139.17566649615765,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "dataarray_coords_getitem": {
+      "ns_min": 230.25787502410822,
+      "ns_median": 230.7870000076946,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "dataset_getitem": {
+      "ns_min": 344.6939999994356,
+      "ns_median": 346.8311670003459,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "dataset_keys": {
+      "ns_min": 15897.237500757912,
+      "ns_median": 15922.91249980917,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "dataset_iterate": {
+      "ns_min": 16948.977099673357,
+      "ns_median": 17011.410449049436,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "iterate_str_variable": {
+      "ns_min": 12974.204200145323,
+      "ns_median": 13046.320799912792,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "unit_eq": {
+      "ns_min": 47.59292500093579,
+      "ns_median": 47.65469180420041,
+      "n_loops": 5000000,
+      "repeats": 9
+    },
+    "getitem_label_int": {
+      "ns_min": 187.1866459987359,
+      "ns_median": 187.54704199091066,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "getitem_label_slice": {
+      "ns_min": 252.53929098835218,
+      "ns_median": 252.98920800560157,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "getitem_positional_int": {
+      "ns_min": 152.661062500556,
+      "ns_median": 152.89277050760575,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "getitem_2d": {
+      "ns_min": 203.74250001623295,
+      "ns_median": 204.17908401577733,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "getitem_ellipsis": {
+      "ns_min": 171.61120800301433,
+      "ns_median": 171.7671874939697,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "add_small": {
+      "ns_min": 1560.054585133912,
+      "ns_median": 1578.3339551126119,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "add_scalar_broadcast": {
+      "ns_min": 1531.771040026797,
+      "ns_median": 1556.7118750186637,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "multiply_small": {
+      "ns_min": 1560.0177049054764,
+      "ns_median": 1589.28916498553,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "compare_eq_small": {
+      "ns_min": 1514.7108348901384,
+      "ns_median": 1523.7362500920426,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "identical_small": {
+      "ns_min": 1358.181250107009,
+      "ns_median": 1371.9447900075465,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "sum_small": {
+      "ns_min": 1998.2700000400655,
+      "ns_median": 2013.533749850467,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "copy_shallow": {
+      "ns_min": 179.0765834884951,
+      "ns_median": 179.32739600655623,
+      "n_loops": 2000000,
+      "repeats": 9
+    },
+    "copy_deep_small": {
+      "ns_min": 1401.6279148927424,
+      "ns_median": 1414.3543750105891,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "unit_conversion_scalar": {
+      "ns_min": 2213.190000038594,
+      "ns_median": 2234.907500096597,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "asarray_small": {
+      "ns_min": 292.4043749808334,
+      "ns_median": 293.7816659978125,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "values_roundtrip_small": {
+      "ns_min": 11676.689599698875,
+      "ns_median": 11731.368750042748,
+      "n_loops": 20000,
+      "repeats": 9
+    },
+    "str_scalar": {
+      "ns_min": 2181.5212498768233,
+      "ns_median": 2193.939169810619,
+      "n_loops": 100000,
+      "repeats": 9
+    },
+    "sizeof": {
+      "ns_min": 59.16801659623161,
+      "ns_median": 59.258816798683256,
+      "n_loops": 5000000,
+      "repeats": 9
+    },
+    "iadd_small": {
+      "ns_min": 1414.4154150562827,
+      "ns_median": 1421.4749999518972,
+      "n_loops": 200000,
+      "repeats": 9
+    },
+    "assign_values_small": {
+      "ns_min": 373.82670800434425,
+      "ns_median": 375.15504099428654,
+      "n_loops": 1000000,
+      "repeats": 9
+    },
+    "assign_values_large": {
+      "ns_min": 79130.8749903692,
+      "ns_median": 83024.16649530642,
+      "n_loops": 2000,
+      "repeats": 9
+    }
+  }
+}
